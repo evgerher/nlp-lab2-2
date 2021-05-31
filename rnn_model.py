@@ -102,7 +102,7 @@ class RNN2RNN(nn.Module):
     trg_vocab_size = self.decoder.embedding.num_embeddings  # todo: what ?
 
     # tensor to store decoder outputs
-    outputs = torch.zeros(max_len - 1, batch_size, trg_vocab_size).to(self.device)
+    outputs = torch.zeros((max_len - 1, batch_size, trg_vocab_size), device=self.device)
 
     # last hidden state of the encoder is used as the initial hidden state of the decoder
     encoder_output_states, encoder_hidden = self.encoder(src, None)  # encoder_hidden can be pair
@@ -171,7 +171,7 @@ def build_seq2seq(setups, embeds, attention):
   encoder_setup, decoder_setup = setups
 
   en_embed, ru_embed = embeds
-  seq2seq = RNN2RNN('GRU', 'GRU', encoder_setup, decoder_setup, en_embed, ru_embed, attention, device)
+  seq2seq = RNN2RNN('GRU', 'GRU', encoder_setup, decoder_setup, en_embed, ru_embed, attention, device).to(device)
   return seq2seq, device
 
 if __name__ == '__main__':
