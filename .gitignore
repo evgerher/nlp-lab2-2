@@ -1,0 +1,6 @@
+.idea
+.DS_Store
+*.pyc
+.vector_cache
+*.txt
+*.log
