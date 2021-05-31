@@ -17,6 +17,14 @@ PAD_TOKEN = '<PAD>'
 SPECIAL_TOKENS = [BOS_TOKEN, EOS_TOKEN, UNK_TOKEN, PAD_TOKEN]
 VOCAB = List[str]
 
+
+SAMPLES = [
+  'What does it mean to be a god?',
+  'The prices of oil suddenly risen',
+  'I am not a doctor, silly you!'
+]
+
+
 EN_field = Field(
     tokenize=tokenizer.tokenize,
     init_token = BOS_TOKEN,
@@ -67,7 +75,7 @@ def remove_tech_tokens(mystr):
 def get_text(x, TRG_vocab):
   text = [TRG_vocab.itos[token] for token in x]
   try:
-    end_idx = text.index('<eos>')
+    end_idx = text.index(EOS_TOKEN)
     text = text[:end_idx]
   except ValueError:
     pass
@@ -78,17 +86,29 @@ def get_text(x, TRG_vocab):
 
 
 def generate_translation(src, trg, model, TRG_vocab):
-  model.eval()
+  with torch.no_grad():
+    model.eval()
 
-  output = model(src, trg, 0)  # turn off teacher forcing
-  output = output.argmax(dim=-1).cpu().numpy()
+    output = model(src, trg, 0)  # turn off teacher forcing
+    output = output.argmax(dim=-1).cpu().numpy()
 
-  original = get_text(list(trg[:, 0].cpu().numpy()), TRG_vocab)
-  generated = get_text(list(output[1:, 0]), TRG_vocab)
+    original = get_text(list(trg[:, 0].cpu().numpy()), TRG_vocab)
+    generated = get_text(list(output[1:, 0]), TRG_vocab)
 
-  print('Original: {}'.format(' '.join(original)))
-  print('Generated: {}'.format(' '.join(generated)))
-  print()
+    print('Original: {}'.format(' '.join(original)))
+    print('Generated: {}'.format(' '.join(generated)))
+    print()
+
+def translate(model, sentences: List[str], max_len=128):
+  with torch.no_grad():
+    outs = []
+    model.eval()
+    for sentence in sentences:
+      en_tokens = EN_field.process([sentence], model.device)
+      ru_tokens = model.translate(en_tokens, max_len=max_len)
+      ru_text = get_text(ru_tokens, RU_field.vocab)
+      outs.append(ru_text)
+    return outs
 
 # ru
 # http://wikipedia2vec.s3.amazonaws.com/models/ru/2018-04-20/ruwiki_20180420_300d.txt.bz2

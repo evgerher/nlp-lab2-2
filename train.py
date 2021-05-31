@@ -1,3 +1,5 @@
+from typing import List
+
 from torch.utils.tensorboard import SummaryWriter
 from torchtext.legacy.data import BucketIterator
 import torch
@@ -6,7 +8,7 @@ from nltk.translate.bleu_score import corpus_bleu
 from tqdm import tqdm, trange
 import logging
 
-from data import get_text, RU_field
+from data import get_text, RU_field, translate, SAMPLES
 
 CLIP = 1
 logger = logging.getLogger('runner')
@@ -110,12 +112,20 @@ def train_epochs(model,
     train_epoch_loss = train(model, iterator_train, optimizer, criterion)
     val_epoch_loss = evaluate(model, iterator_val, criterion)
 
+    translated_samples = translate(model, SAMPLES)
+
     train_losses.append(train_epoch_loss)
     val_losses.append(val_epoch_loss)
     logger.info('Epoch [%d] Train loss:\t%.3f', epoch, train_epoch_loss)
     logger.info('Epoch [%d] Val loss:\t%.3f', epoch, val_epoch_loss)
     writer.add_scalar('train_loss', train_epoch_loss, epoch)
     writer.add_scalar('val_loss', val_epoch_loss, epoch)
+
+    for en_sample, ru_sample in zip(SAMPLES, translated_samples):
+      msg = 'Translation [{}] === [{}]'.format(en_sample, ru_sample)
+      logger.info(msg)
+      writer.add_text('translation', msg, epoch)
+
   logger.info('Finish training')
   return train_losses, val_losses
 

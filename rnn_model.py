@@ -121,6 +121,21 @@ class RNN2RNN(nn.Module):
 
     return outputs
 
+  def translate(self, en_tokens, max_len: int):
+    ru_tokens = []
+    encoder_output_states, encoder_hidden = self.encoder(en_tokens, None)
+    input = torch.tensor([RU_field.vocab.stoi[BOS_TOKEN]], dtype=torch.long, device=self.device)
+    EOS_TOKEN_ID = RU_field.vocab.stoi[EOS_TOKEN]
+    decoder_hidden = encoder_hidden[:2]
+    for t in range(1, max_len):
+      output, decoder_hidden = self.decoder(input, decoder_hidden, encoder_output_states)
+      input = output.max(1)[1]
+      token = input.item()
+      ru_tokens.append(token)
+      if token == EOS_TOKEN_ID:
+        break
+    return ru_tokens
+
 
 def init_arguments():
   encoder_setup = {
@@ -190,4 +205,4 @@ if __name__ == '__main__':
   train_epochs(seq2seq, train_iterator, valid_iterator, optimizer, criterion, train_params['epochs'], writer)
 
   score = bleu_score(seq2seq, test_iterator)
-  print('Model bleu', score)
+
