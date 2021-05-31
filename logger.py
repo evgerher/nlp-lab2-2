@@ -6,7 +6,7 @@ DATE_FORMAT = '%Y-%m-%dT%H:%M:%S.%f'
 
 def setup_logger():
   logger = logging.getLogger('runner')
-  formatter = logging.Formatter("%(levelname)s: %(message)s")
+  formatter = logging.Formatter("%(asctime)s %(levelname)s: %(message)s")
   stdout_handler = logging.StreamHandler(sys.stdout)
   file_handler = logging.FileHandler('runner.log')
 

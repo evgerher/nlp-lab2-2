@@ -34,21 +34,16 @@ def prepare(train_params, model, dataset, device, pad_idx):
 
 def train(model, iterator, optimizer, criterion):
   model.train()
-
   epoch_loss = 0
-  history = []
   for i, batch in enumerate(iterator):
-
     src = batch.en
     trg = batch.ru
 
     optimizer.zero_grad()
-
     output = model(src, trg)
 
     # trg = [trg sent len, batch size]
     # output = [trg sent len, batch size, output dim]
-
     output = output.view(-1, output.shape[-1])
     trg = trg[1:].view(-1)
 
@@ -56,45 +51,31 @@ def train(model, iterator, optimizer, criterion):
     # output = [(trg sent len - 1) * batch size, output dim]
 
     loss = criterion(output, trg)
-
     loss.backward()
-
     # Let's clip the gradient
     torch.nn.utils.clip_grad_norm_(model.parameters(), CLIP)
-
     optimizer.step()
-
     epoch_loss += loss.item()
-    history.append(loss.item())
   return epoch_loss / len(iterator)
 
 def evaluate(model, iterator, criterion):
-
   model.eval()
-
   epoch_loss = 0
-
-  history = []
-
   with torch.no_grad():
     for i, batch in enumerate(iterator):
       src = batch.en
       trg = batch.ru
 
       output = model(src, trg, 0)  # turn off teacher forcing
-
       # trg = [trg sent len, batch size]
       # output = [trg sent len, batch size, output dim]
-
       output = output.view(-1, output.shape[-1])
       trg = trg[1:].view(-1)
 
       # trg = [(trg sent len - 1) * batch size]
       # output = [(trg sent len - 1) * batch size, output dim]
-
       loss = criterion(output, trg)
       epoch_loss += loss.item()
-
   return epoch_loss / len(iterator)
 
 
