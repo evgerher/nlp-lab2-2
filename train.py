@@ -1,12 +1,16 @@
+from torch.utils.tensorboard import SummaryWriter
 from torchtext.legacy.data import BucketIterator
 import torch
 from torch import optim, nn
 from nltk.translate.bleu_score import corpus_bleu
 from tqdm import tqdm, trange
+import logging
 
 from data import get_text, RU_field
 
 CLIP = 1
+logger = logging.getLogger('runner')
+
 
 def _len_sort_key(x):
   return len(x.en)
@@ -92,7 +96,14 @@ def evaluate(model, iterator, criterion):
   return epoch_loss / len(iterator)
 
 
-def train_epochs(model, iterator_train, iterator_val, optimizer, criterion, epochs):
+def train_epochs(model,
+                 iterator_train,
+                 iterator_val,
+                 optimizer,
+                 criterion,
+                 epochs,
+                 writer: SummaryWriter):
+  logger.info('Start training')
   train_losses = []
   val_losses = []
   for epoch in trange(1, epochs + 1):
@@ -101,9 +112,15 @@ def train_epochs(model, iterator_train, iterator_val, optimizer, criterion, epoc
 
     train_losses.append(train_epoch_loss)
     val_losses.append(val_epoch_loss)
+    logger.info('Epoch [%d] Train loss:\t%.3f', epoch, train_epoch_loss)
+    logger.info('Epoch [%d] Val loss:\t%.3f', epoch, val_epoch_loss)
+    writer.add_scalar('train_loss', train_epoch_loss, epoch)
+    writer.add_scalar('val_loss', val_epoch_loss, epoch)
+  logger.info('Finish training')
   return train_losses, val_losses
 
 def bleu_score(model, iterator_test):
+  logger.info('Start BLEU scoring')
   original_text = []
   generated_text = []
   model.eval()
@@ -121,5 +138,8 @@ def bleu_score(model, iterator_test):
 
       original_text.extend([get_text(x, RU_field.vocab) for x in trg.cpu().numpy().T])
       generated_text.extend([get_text(x, RU_field.vocab) for x in output[1:].detach().cpu().numpy().T])
+  logger.info('Finished BLEU scoring')
   score = corpus_bleu([[text] for text in original_text], generated_text) * 100
+  logger.info('BLEU score: %.2f', score)
+
   return score

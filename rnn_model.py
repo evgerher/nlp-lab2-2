@@ -1,13 +1,14 @@
 import random
+import logging
 
-import torch
-from torch import nn
+from torch.utils.tensorboard import SummaryWriter
 import torch.nn.functional as F
 
 from data import *
 from logger import setup_logger
 from train import prepare, train, train_epochs, bleu_score
 
+logger = logging.getLogger('runner')
 
 def resolve_rnn(input_size: int, cell_name: str, model_setup: dict) -> nn.Module:
   if cell_name == 'GRU':
@@ -163,6 +164,7 @@ def init_arguments():
   embeds = (encoder_embedding, decoder_embedding)
   vocabs = (en_vocab, ru_vocab)
   setups = (encoder_setup, decoder_setup)
+  logger.info('Initialized params: loaded dataset, vocabs, embeds')
   return train_params, setups, vocabs, embeds, attention, dataset
 
 
@@ -172,17 +174,20 @@ def build_seq2seq(setups, embeds, attention):
 
   en_embed, ru_embed = embeds
   seq2seq = RNN2RNN('GRU', 'GRU', encoder_setup, decoder_setup, en_embed, ru_embed, attention, device).to(device)
+  logger.info('Initialized model')
   return seq2seq, device
 
 if __name__ == '__main__':
   setup_logger()
+  logger.info('Model RNN2RNN') # todo: add attention
+  writer = SummaryWriter('exp_RNN2RNN')
   train_params, setups, vocabs, embeds, attention, dataset = init_arguments()
   (en_vocab, ru_vocab) = vocabs
   seq2seq, device = build_seq2seq(setups, embeds, attention)
 
   pad_idx = ru_vocab.stoi[PAD_TOKEN]
   optimizer, criterion, (train_iterator, valid_iterator, test_iterator) = prepare(train_params, seq2seq, dataset, device, pad_idx)
-  train_epochs(seq2seq, train_iterator, valid_iterator, optimizer, criterion, epochs=train_params['epochs'])
+  train_epochs(seq2seq, train_iterator, valid_iterator, optimizer, criterion, train_params['epochs'], writer)
 
   score = bleu_score(seq2seq, test_iterator)
   print('Model bleu', score)

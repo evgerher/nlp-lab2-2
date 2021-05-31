@@ -4,3 +4,4 @@
 .vector_cache
 *.txt
 *.log
+exp_*
