@@ -6,7 +6,7 @@ import torch.nn.functional as F
 
 from data import *
 from logger import setup_logger
-from train import prepare, train, train_epochs, bleu_score
+from train import prepare, train_epoch, train_epochs, bleu_score
 
 logger = logging.getLogger('runner')
 
@@ -83,11 +83,13 @@ class RNN2RNN(nn.Module):
                encoder_embedding: nn.Embedding,
                decoder_embedding: nn.Embedding,
                attention,
-               device):
+               device,
+               model_name):
     super().__init__()
     self.encoder = RNN_ModelEncoder(encoder_cell, encoder_setup, encoder_embedding)
     self.decoder = RNN_ModelDecoder(decoder_cell, decoder_setup, decoder_embedding, attention)
     self.device = device
+    self.name = model_name
 
   def forward(self, src, trg, teacher_forcing_ratio = 0.5):
     # src = src.T
@@ -183,22 +185,23 @@ def init_arguments():
   return train_params, setups, vocabs, embeds, attention, dataset
 
 
-def build_seq2seq(setups, embeds, attention):
+def build_seq2seq(setups, embeds, attention, model_name):
   device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
   encoder_setup, decoder_setup = setups
 
   en_embed, ru_embed = embeds
-  seq2seq = RNN2RNN('GRU', 'GRU', encoder_setup, decoder_setup, en_embed, ru_embed, attention, device).to(device)
+  seq2seq = RNN2RNN('GRU', 'GRU', encoder_setup, decoder_setup, en_embed, ru_embed, attention, device, model_name).to(device)
   logger.info('Initialized model')
   return seq2seq, device
 
 if __name__ == '__main__':
   setup_logger()
-  logger.info('Model RNN2RNN') # todo: add attention
+  model_name = 'RNN2RNN'
+  logger.info(f'Model {model_name}') # todo: add attention
   writer = SummaryWriter('exp_RNN2RNN')
   train_params, setups, vocabs, embeds, attention, dataset = init_arguments()
   (en_vocab, ru_vocab) = vocabs
-  seq2seq, device = build_seq2seq(setups, embeds, attention)
+  seq2seq, device = build_seq2seq(setups, embeds, attention, model_name)
 
   pad_idx = ru_vocab.stoi[PAD_TOKEN]
   optimizer, criterion, (train_iterator, valid_iterator, test_iterator) = prepare(train_params, seq2seq, dataset, device, pad_idx)

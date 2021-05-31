@@ -32,7 +32,7 @@ def prepare(train_params, model, dataset, device, pad_idx):
   return optimizer, criterion, (train_iterator, valid_iterator, test_iterator)
 
 
-def train(model, iterator, optimizer, criterion):
+def train_epoch(model, iterator, optimizer, criterion):
   model.train()
   epoch_loss = 0
   for i, batch in enumerate(iterator):
@@ -58,7 +58,7 @@ def train(model, iterator, optimizer, criterion):
     epoch_loss += loss.item()
   return epoch_loss / len(iterator)
 
-def evaluate(model, iterator, criterion):
+def evaluate_epoch(model, iterator, criterion):
   model.eval()
   epoch_loss = 0
   with torch.no_grad():
@@ -87,11 +87,12 @@ def train_epochs(model,
                  epochs,
                  writer: SummaryWriter):
   logger.info('Start training')
+  best_loss = float('inf')
   train_losses = []
   val_losses = []
   for epoch in trange(1, epochs + 1):
-    train_epoch_loss = train(model, iterator_train, optimizer, criterion)
-    val_epoch_loss = evaluate(model, iterator_val, criterion)
+    train_epoch_loss = train_epoch(model, iterator_train, optimizer, criterion)
+    val_epoch_loss = evaluate_epoch(model, iterator_val, criterion)
 
     translated_samples = translate(model, SAMPLES)
 
@@ -106,6 +107,16 @@ def train_epochs(model,
       msg = 'Translation [{}] === [{}]'.format(en_sample, ru_sample)
       logger.info(msg)
       writer.add_text('translation', msg, epoch)
+
+    if val_epoch_loss < best_loss:
+      best_loss = val_epoch_loss
+      state_dict = model.state_dict()
+      logger.info('New best model')
+      torch.save(state_dict, f'{model.name}_best.pt')
+
+    if epoch % 5 == 0:
+      state_dict = model.state_dict()
+      torch.save(state_dict, f'{model.name}_{epoch}.pt')
 
   logger.info('Finish training')
   return train_losses, val_losses
