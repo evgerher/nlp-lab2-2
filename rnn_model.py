@@ -66,8 +66,7 @@ class RNN_ModelDecoder(nn.Module):
   def forward(self, input, hidden, encoder_outputs):
     embeds = self.embedding(input).unsqueeze(0)
     embeds = self.dropout(embeds)
-    output, hidden = self.rnn(embeds, hidden)
-    output.squeeze_(0)
+    output, hidden = self.rnn(embeds, hidden).squeeze(0)
     if self.attention:
       output, attn_weights = self.attention(output, hidden, encoder_outputs)
     output = self.out(output)
