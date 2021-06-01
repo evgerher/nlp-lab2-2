@@ -1,9 +1,11 @@
 import random
 import logging
 
+import torch
 from torch.utils.tensorboard import SummaryWriter
 import torch.nn.functional as F
 
+from attention import LuongAttention
 from data import *
 from logger import setup_logger
 from train import prepare, train_epoch, train_epochs, bleu_score
@@ -56,7 +58,6 @@ class RNN_ModelDecoder(nn.Module):
     self.input_dim = embedding.embedding_dim
     self.hid_dim = model_setup['hidden_size']
     self.nlayers = model_setup['layers']
-    self.bidirectional = model_setup['bidirectional']
     self.rnn = resolve_rnn(embedding.embedding_dim, cell_name, model_setup)
     self.embedding = embedding
     self.dropout = nn.Dropout(model_setup['other_dropout'])
@@ -65,12 +66,9 @@ class RNN_ModelDecoder(nn.Module):
   def forward(self, input, hidden, encoder_outputs):
     embeds = self.embedding(input).unsqueeze(0)
     embeds = self.dropout(embeds)
+    output, hidden = self.rnn(embeds, hidden)
     if self.attention:
-      rnn_input = self.attention(embeds, hidden, encoder_outputs)
-    else:
-      rnn_input = embeds
-    rnn_input = F.relu(rnn_input)
-    output, hidden = self.rnn(rnn_input, hidden)
+      output = self.attention(output, hidden, encoder_outputs).unsqueeze(0)
     output = self.out(output)[0]
     return output, hidden
 
@@ -112,7 +110,7 @@ class RNN2RNN(nn.Module):
 
     # first input to the decoder is the <bos> tokens
     input = trg[0, :]
-    decoder_hidden = encoder_hidden[:2]
+    decoder_hidden = encoder_hidden[-2:]
     for t in range(1, max_len):
       # todo: i am not expecting softmax or log_softmax
       output, decoder_hidden = self.decoder(input, decoder_hidden, encoder_output_states)
@@ -128,7 +126,7 @@ class RNN2RNN(nn.Module):
     encoder_output_states, encoder_hidden = self.encoder(en_tokens, None)
     input = torch.tensor([RU_field.vocab.stoi[BOS_TOKEN]], dtype=torch.long, device=self.device)
     EOS_TOKEN_ID = RU_field.vocab.stoi[EOS_TOKEN]
-    decoder_hidden = encoder_hidden[:2]
+    decoder_hidden = encoder_hidden[-2:]
     for t in range(1, max_len):
       output, decoder_hidden = self.decoder(input, decoder_hidden, encoder_output_states)
       input = output.max(1)[1]
@@ -172,11 +170,17 @@ def init_arguments():
   en_vocab = build_vocab_en(train_data)
   ru_vocab = build_vocab(RU_field, train_data)
 
+
+  weights = EN_field.vocab.vectors
+  mask = (weights[:, 0] == 0.0)
+  mean, std = weights[~mask].mean(), weights[~mask].std()
+  weights[mask] = torch.normal(mean, std, weights[mask].size())
+
   n_tokens = len(ru_vocab.stoi)
-  encoder_embedding = nn.Embedding.from_pretrained(EN_field.vocab.vectors, padding_idx=en_vocab.stoi[PAD_TOKEN])
+  encoder_embedding = nn.Embedding.from_pretrained(weights, padding_idx=en_vocab.stoi[PAD_TOKEN])
   decoder_embedding = nn.Embedding(n_tokens, dec_emb_setup['embedding_size'], padding_idx=ru_vocab.stoi[PAD_TOKEN])
 
-  attention = None
+  attention = LuongAttention(decoder_setup['hidden_size'], encoder_setup['bidirectional'], n_tokens)
   dataset = (train_data, valid_data, test_data)
   embeds = (encoder_embedding, decoder_embedding)
   vocabs = (en_vocab, ru_vocab)
