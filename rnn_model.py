@@ -162,9 +162,9 @@ def init_arguments():
   }
 
   train_params = {
-    'lr': 0.001,
-    'epochs': 30,
-    'batch_size': 128
+    'lr': 0.005,
+    'epochs': 60,
+    'batch_size': 256
   }
 
   train_data, valid_data, test_data = load_dataset('data.txt')
