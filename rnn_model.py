@@ -67,10 +67,11 @@ class RNN_ModelDecoder(nn.Module):
     embeds = self.embedding(input).unsqueeze(0)
     embeds = self.dropout(embeds)
     output, hidden = self.rnn(embeds, hidden)
+    output.squeeze_(0)
     if self.attention:
-      output = self.attention(output, hidden, encoder_outputs).unsqueeze(0)
-    output = self.out(output)[0]
-    return output, hidden
+      output, attn_weights = self.attention(output, hidden, encoder_outputs)
+    output = self.out(output)
+    return output, hidden, attn_weights
 
 class RNN2RNN(nn.Module):
   def __init__(self,
@@ -113,7 +114,7 @@ class RNN2RNN(nn.Module):
     decoder_hidden = encoder_hidden[-2:]
     for t in range(1, max_len):
       # todo: i am not expecting softmax or log_softmax
-      output, decoder_hidden = self.decoder(input, decoder_hidden, encoder_output_states)
+      output, decoder_hidden, _ = self.decoder(input, decoder_hidden, encoder_output_states)
       outputs[t - 1] = output
       teacher_force = random.random() < teacher_forcing_ratio
       top1 = output.max(1)[1]
@@ -128,7 +129,7 @@ class RNN2RNN(nn.Module):
     EOS_TOKEN_ID = RU_field.vocab.stoi[EOS_TOKEN]
     decoder_hidden = encoder_hidden[-2:]
     for t in range(1, max_len):
-      output, decoder_hidden = self.decoder(input, decoder_hidden, encoder_output_states)
+      output, decoder_hidden, _ = self.decoder(input, decoder_hidden, encoder_output_states)
       input = output.max(1)[1]
       token = input.item()
       ru_tokens.append(token)
