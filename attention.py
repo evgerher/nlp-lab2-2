@@ -22,6 +22,8 @@ class LuongAttention(Attention):
     attn_weights = F.softmax(attn_energies, dim=-1)
     context = attn_weights.bmm(encoder_outputs.transpose(0, 1))  # B x S=1 x N
 
+    rnn_output = rnn_output.squeeze(0)  # S=1 x B x N -> B x N
+    # context = context.squeeze(1)  # B x S=1 x N -> B x N
     concat_input = torch.cat((rnn_output, context[:, -1]), 1)
     concat_output = torch.tanh(self.concat(concat_input))
     return concat_output, attn_weights
