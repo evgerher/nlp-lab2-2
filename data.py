@@ -106,7 +106,7 @@ def translate(model, sentences: List[str], max_len=128):
     for sentence in sentences:
       en_tokens = EN_field.process([sentence], model.device)
       ru_tokens = model.translate(en_tokens, max_len=max_len)
-      ru_text = ''.join(get_text(ru_tokens, RU_field.vocab))
+      ru_text = ' '.join(get_text(ru_tokens, RU_field.vocab))
       outs.append(ru_text)
     return outs
 
