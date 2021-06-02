@@ -171,7 +171,8 @@ def init_arguments():
 
 
 def init_embeds(encoder_setup, decoder_setup, dec_emb_setup, train_params):
-  train_data, valid_data, test_data = load_dataset('data.txt')
+  # train_data, valid_data, test_data = load_dataset_local('data.txt')
+  train_data, valid_data, test_data = load_dataset_opus()
   en_vocab = build_vocab_en(train_data)
   ru_vocab = build_vocab(RU_field, train_data)
 

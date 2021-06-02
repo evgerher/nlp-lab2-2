@@ -3,10 +3,12 @@ import os
 from typing import Optional, Tuple, List
 import numpy as np
 import torch
+import torchtext
 from torch import nn
 from torchtext.vocab import FastText, GloVe
-from torchtext.legacy.data import Field, TabularDataset
+from torchtext.legacy.data import Field, TabularDataset, Example
 from nltk.tokenize import WordPunctTokenizer
+import datasets
 
 logger = logging.getLogger('runner')
 tokenizer = WordPunctTokenizer()
@@ -56,7 +58,7 @@ def build_vocab(field, preprocessed_text, vectors=None):
 def build_vocab_en(preprocessed_text):
   return build_vocab(EN_field, preprocessed_text, 'fasttext.simple.300d')
 
-def load_dataset(path: str):
+def load_dataset_local(path: str):
 
   dataset = TabularDataset(
     path=path,
@@ -65,6 +67,72 @@ def load_dataset(path: str):
   )
   train_data, valid_data, test_data = dataset.split(split_ratio=[0.8, 0.15, 0.05])
   return train_data, valid_data, test_data
+
+class TabularDataset_From_List(torchtext.legacy.data.Dataset):
+
+  def __init__(self, input_list, format, fields, skip_header=False, **kwargs):
+    make_example = {
+      'json': Example.fromJSON, 'dict': Example.fromdict, 'csv': Example.fromCSV}[format.lower()]
+
+    examples = [make_example(item, fields) for item in input_list]
+
+    if make_example in (Example.fromdict, Example.fromJSON):
+      fields, field_dict = [], fields
+      for field in field_dict.values():
+        if isinstance(field, list):
+          fields.extend(field)
+        else:
+          fields.append(field)
+
+    super(TabularDataset_From_List, self).__init__(examples, fields, **kwargs)
+
+  @classmethod
+  def splits(cls, path=None, root='.data', train=None, validation=None,
+             test=None, **kwargs):
+    if path is None:
+      path = cls.download(root)
+    train_data = None if train is None else cls(
+      train, **kwargs)
+    val_data = None if validation is None else cls(
+      validation, **kwargs)
+    test_data = None if test is None else cls(
+      test, **kwargs)
+    return tuple(d for d in (train_data, val_data, test_data) if d is not None)
+
+
+def load_dataset_opus():
+  dataset = datasets.load_dataset("opus100", "en-ru")
+  train_ds = dataset['train']['translation']
+  val_ds = dataset['validation']['translation']
+  test_ds = dataset['test']['translation']
+
+  train_ds = [torchtext.legacy.data.Example.fromlist(
+    [y['en'], y['ru']],
+    [('en', EN_field), ('ru', RU_field)])
+   for y in train_ds]
+  val_ds = [torchtext.legacy.data.Example.fromlist(
+    [y['en'], y['ru']],
+    [('en', EN_field), ('ru', RU_field)])
+  for y in val_ds]
+  test_ds = [torchtext.legacy.data.Example.fromlist(
+    [y['en'], y['ru']],
+    [('en', EN_field), ('ru', RU_field)])
+  for y in test_ds]
+
+  # train_ds, val_ds, test_ds = [[torchtext.legacy.data.Example.fromlist(
+  #   [y['en'], y['ru']],
+  #   [('en', EN_field), ('ru', RU_field)])
+  # ] for x in [train_ds, val_ds, test_ds] for y in x]
+
+  train_ds, val_ds, test_ds = [
+    torchtext.legacy.data.Dataset(
+      ds,
+      [('en', EN_field), ('ru', RU_field)]
+    ) for ds in [train_ds, val_ds, test_ds]
+  ]
+
+  return train_ds, val_ds, test_ds
+
 
 def flatten(l):
   return [item for sublist in l for item in sublist]
