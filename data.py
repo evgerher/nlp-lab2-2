@@ -29,11 +29,59 @@ SAMPLES = [
 def tokenization(x):
   return tokenizer.tokenize(x.lower())
 
+
+def numericalize(self, arr, device=None):
+  unk_token = self.vocab.stoi[UNK_TOKEN]
+  if self.include_lengths and not isinstance(arr, tuple):
+    raise ValueError("Field has include_lengths set to True, but "
+                     "input data is not a tuple of "
+                     "(data batch, batch lengths).")
+  if isinstance(arr, tuple):
+    arr, lengths = arr
+    lengths = torch.tensor(lengths, dtype=self.dtype, device=device)
+
+  if self.use_vocab:
+    if self.sequential:
+      arr = [[self.vocab.stoi.get(x, unk_token) for x in ex] for ex in arr]
+    else:
+      arr = [self.vocab.stoi.get(x, unk_token) for x in arr]
+
+    if self.postprocessing is not None:
+      arr = self.postprocessing(arr, self.vocab)
+  else:
+    if self.dtype not in self.dtypes:
+      raise ValueError(
+        "Specified Field dtype {} can not be used with "
+        "use_vocab=False because we do not know how to numericalize it. "
+        "Please raise an issue at "
+        "https://github.com/pytorch/text/issues".format(self.dtype))
+    numericalization_func = self.dtypes[self.dtype]
+    # It doesn't make sense to explicitly coerce to a numeric type if
+    # the data is sequential, since it's unclear how to coerce padding tokens
+    # to a numeric type.
+    if not self.sequential:
+      arr = [numericalization_func(x) if isinstance(x, str)
+             else x for x in arr]
+    if self.postprocessing is not None:
+      arr = self.postprocessing(arr, None)
+
+  var = torch.tensor(arr, dtype=self.dtype, device=device)
+
+  if self.sequential and not self.batch_first:
+    var.t_()
+  if self.sequential:
+    var = var.contiguous()
+
+  if self.include_lengths:
+    return var, lengths
+  return var
+
 EN_field = Field(
     tokenize=tokenization,
     init_token = BOS_TOKEN,
     eos_token = EOS_TOKEN,
     pad_token=PAD_TOKEN,
+    unk_token=UNK_TOKEN,
     # fix_length=5,
     lower=True
 )
@@ -43,8 +91,13 @@ RU_field = Field(
   init_token = BOS_TOKEN,
   eos_token = EOS_TOKEN,
   pad_token=PAD_TOKEN,
+  unk_token=UNK_TOKEN,
+
   # lower = True,
 )
+
+EN_field.numericalize = lambda *args, **kwargs: numericalize(EN_field, *args, **kwargs)
+RU_field.numericalize = lambda *args, **kwargs: numericalize(RU_field, *args, **kwargs)
 
 def build_vocab(field, preprocessed_text, vectors=None):
   field.build_vocab(
@@ -71,18 +124,14 @@ def load_dataset_local(path: str):
 class TabularDataset_From_List(torchtext.legacy.data.Dataset):
 
   def __init__(self, input_list, format, fields, skip_header=False, **kwargs):
-    make_example = {
-      'json': Example.fromJSON, 'dict': Example.fromdict, 'csv': Example.fromCSV}[format.lower()]
+    examples = [Example.fromlist(item, fields) for item in input_list]
 
-    examples = [make_example(item, fields) for item in input_list]
-
-    if make_example in (Example.fromdict, Example.fromJSON):
-      fields, field_dict = [], fields
-      for field in field_dict.values():
-        if isinstance(field, list):
-          fields.extend(field)
-        else:
-          fields.append(field)
+    fields, field_dict = [], fields
+    for field in field_dict.values():
+      if isinstance(field, list):
+        fields.extend(field)
+      else:
+        fields.append(field)
 
     super(TabularDataset_From_List, self).__init__(examples, fields, **kwargs)
 
@@ -102,36 +151,66 @@ class TabularDataset_From_List(torchtext.legacy.data.Dataset):
 
 def load_dataset_opus():
   dataset = datasets.load_dataset("opus100", "en-ru")
-  train_ds = dataset['train']['translation']
-  val_ds = dataset['validation']['translation']
-  test_ds = dataset['test']['translation']
+  train_ds = dataset['train']
+  val_ds = dataset['validation']
+  test_ds = dataset['test']
 
-  train_ds = [torchtext.legacy.data.Example.fromlist(
-    [y['en'], y['ru']],
-    [('en', EN_field), ('ru', RU_field)])
-   for y in train_ds]
-  val_ds = [torchtext.legacy.data.Example.fromlist(
-    [y['en'], y['ru']],
-    [('en', EN_field), ('ru', RU_field)])
-  for y in val_ds]
-  test_ds = [torchtext.legacy.data.Example.fromlist(
-    [y['en'], y['ru']],
-    [('en', EN_field), ('ru', RU_field)])
-  for y in test_ds]
+  build_vocab_en([x['en'] for x in train_ds['translation']])
+  build_vocab(RU_field, [x['ru'] for x in train_ds['translation']])
+
+  dataset = dataset.map(lambda x: {
+    'en': EN_field.process(x['en']),
+    'ru': RU_field.process(x['ru'])
+  }, input_columns='translation')
+  dataset.set_format('torch', columns=['en', 'ru'])
+
+  train_ds = dataset['train']
+  val_ds = dataset['validation']
+  test_ds = dataset['test']
+
+  return train_ds, val_ds, test_ds
+
+  # train_ds = [torchtext.legacy.data.Example.fromlist(
+  #   [y['en'], y['ru']],
+  #   [('en', EN_field), ('ru', RU_field)])
+  #  for y in train_ds]
+  # val_ds = [torchtext.legacy.data.Example.fromlist(
+  #   [y['en'], y['ru']],
+  #   [('en', EN_field), ('ru', RU_field)])
+  # for y in val_ds]
+  # test_ds = [torchtext.legacy.data.Example.fromlist(
+  #   [y['en'], y['ru']],
+  #   [('en', EN_field), ('ru', RU_field)])
+  # for y in test_ds]
 
   # train_ds, val_ds, test_ds = [[torchtext.legacy.data.Example.fromlist(
   #   [y['en'], y['ru']],
   #   [('en', EN_field), ('ru', RU_field)])
   # ] for x in [train_ds, val_ds, test_ds] for y in x]
 
-  train_ds, val_ds, test_ds = [
-    torchtext.legacy.data.Dataset(
-      ds,
-      [('en', EN_field), ('ru', RU_field)]
-    ) for ds in [train_ds, val_ds, test_ds]
-  ]
+  # train_ds, val_ds, test_ds = [
+  #   torchtext.legacy.data.Dataset(
+  #     ds,
+  #     [('en', EN_field), ('ru', RU_field)]
+  #   ) for ds in [train_ds, val_ds, test_ds]
+  # ]
 
-  return train_ds, val_ds, test_ds
+  # def conversion(examples):
+  #   d = {'en': [], 'ru': []}
+  #   for item in examples:
+  #     d['en'].append(item['en'])
+  #     d['ru'].append(item['ru'])
+  #   return d
+  #
+  # train_ds, val_ds, test_ds = [
+  #   TabularDataset_From_List(
+  #     conversion(x),
+  #     'dict',
+  #     [('en', EN_field), ('ru', RU_field)]
+  #   ) for x in [train_ds, val_ds, test_ds]
+  # ]
+
+  # return train_ds, val_ds, test_ds
 
 
 def flatten(l):
