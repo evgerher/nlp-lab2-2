@@ -24,9 +24,11 @@ SAMPLES = [
   'I am not a doctor, silly you!'
 ]
 
+def tokenization(x):
+  return tokenizer.tokenize(x.lower())
 
 EN_field = Field(
-    tokenize=tokenizer.tokenize,
+    tokenize=tokenization,
     init_token = BOS_TOKEN,
     eos_token = EOS_TOKEN,
     pad_token=PAD_TOKEN,
@@ -35,11 +37,11 @@ EN_field = Field(
 )
 
 RU_field = Field(
-  tokenize=tokenizer.tokenize,
+  tokenize=tokenization,
   init_token = BOS_TOKEN,
   eos_token = EOS_TOKEN,
   pad_token=PAD_TOKEN,
-  lower = True,
+  # lower = True,
 )
 
 def build_vocab(field, preprocessed_text, vectors=None):

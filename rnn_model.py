@@ -162,11 +162,15 @@ def init_arguments():
   }
 
   train_params = {
-    'lr': 0.005,
+    'lr': 0.001,
     'epochs': 60,
     'batch_size': 128
   }
 
+  return encoder_setup, decoder_setup, dec_emb_setup, train_params
+
+
+def init_embeds(encoder_setup, decoder_setup, dec_emb_setup, train_params):
   train_data, valid_data, test_data = load_dataset('data.txt')
   en_vocab = build_vocab_en(train_data)
   ru_vocab = build_vocab(RU_field, train_data)
@@ -204,7 +208,8 @@ if __name__ == '__main__':
   model_name = 'RNN2RNN'
   logger.info(f'Model {model_name}') # todo: add attention
   writer = SummaryWriter('exp_RNN2RNN')
-  train_params, setups, vocabs, embeds, attention, dataset = init_arguments()
+  encoder_setup, decoder_setup, dec_emb_setup, train_params = init_arguments()
+  train_params, setups, vocabs, embeds, attention, dataset = init_embeds(encoder_setup, decoder_setup, dec_emb_setup, train_params)
   (en_vocab, ru_vocab) = vocabs
   seq2seq, device = build_seq2seq(setups, embeds, attention, model_name)
 
