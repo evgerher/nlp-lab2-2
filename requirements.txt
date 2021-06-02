@@ -6,3 +6,4 @@ tensorboard==2.5.0
 jupyter
 spacy == 3.0.6
 nltk == 3.6.2
+datasets

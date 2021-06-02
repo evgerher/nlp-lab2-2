@@ -150,19 +150,25 @@ class TabularDataset_From_List(torchtext.legacy.data.Dataset):
 
 
 def load_dataset_opus():
-  dataset = datasets.load_dataset("opus100", "en-ru")
-  train_ds = dataset['train']
-  val_ds = dataset['validation']
-  test_ds = dataset['test']
+  fname = 'saved_dataset'
+  if not os.path.exists(fname):
+    dataset = datasets.load_dataset("opus100", "en-ru")
+    train_ds = dataset['train']
+    val_ds = dataset['validation']
+    test_ds = dataset['test']
 
-  build_vocab_en([x['en'] for x in train_ds['translation']])
-  build_vocab(RU_field, [x['ru'] for x in train_ds['translation']])
+    build_vocab_en([x['en'] for x in train_ds['translation']])
+    build_vocab(RU_field, [x['ru'] for x in train_ds['translation']])
 
-  dataset = dataset.map(lambda x: {
-    'en': EN_field.process(x['en']),
-    'ru': RU_field.process(x['ru'])
-  }, input_columns='translation')
-  dataset.set_format('torch', columns=['en', 'ru'])
+    dataset = dataset.map(lambda x: {
+      'en': EN_field.process(x['en']),
+      'ru': RU_field.process(x['ru'])
+    }, input_columns='translation')
+    dataset.set_format('torch', columns=['en', 'ru'])
+
+    dataset.save_to_disk(fname)
+  else:
+    dataset = datasets.load_from_disk(fname)
 
   train_ds = dataset['train']
   val_ds = dataset['validation']

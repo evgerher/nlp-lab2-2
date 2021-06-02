@@ -163,8 +163,8 @@ def init_arguments():
 
   train_params = {
     'lr': 0.001,
-    'epochs': 60,
-    'batch_size': 128
+    'epochs': 15,
+    'batch_size': 512
   }
 
   return encoder_setup, decoder_setup, dec_emb_setup, train_params
