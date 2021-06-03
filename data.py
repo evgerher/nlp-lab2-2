@@ -180,6 +180,9 @@ def load_dataset_opus():
     examples = dataset['train']['translation']
     with open(tsv_path, 'w') as fw:
       for ex in examples[:-1]:
+        a, b = ex['en'], ex['ru']
+        if len(a) == 0 or len(b) == 0:
+          continue
         fw.write(ex['en'])
         fw.write('\t')
         fw.write(ex['ru'])
