@@ -169,10 +169,36 @@ def load_dataset_opus():
     dataset.save_to_disk(fname)
   else:
     dataset = datasets.load_from_disk(fname)
+    train_ds = dataset['train']
+    build_vocab_en([x['en'] for x in train_ds['translation']])
+    build_vocab(RU_field, [x['ru'] for x in train_ds['translation']])
+    dataset.set_format('torch', columns=['en', 'ru'])
 
-  train_ds = dataset['train']
-  val_ds = dataset['validation']
-  test_ds = dataset['test']
+
+  tsv_path = 'opus100-train.txt'
+  if not os.path.exists(tsv_path):
+    examples = dataset['train']['translation']
+    with open(tsv_path, 'w') as fw:
+      for ex in examples[:-1]:
+        fw.write(ex['en'])
+        fw.write('\t')
+        fw.write(ex['ru'])
+        fw.write('\n')
+      fw.write(examples[-1]['en'])
+      fw.write('\t')
+      fw.write(examples[-1]['ru'])
+  dataset = TabularDataset(
+    path=tsv_path,
+    format='tsv',
+    fields=[('en', EN_field), ('ru', RU_field)]
+  )
+  train_data, valid_data, test_data = dataset.split(split_ratio=[0.8, 0.15, 0.05])
+  return train_data, valid_data, test_data
+
+  #
+  # train_ds = dataset['train']
+  # val_ds = dataset['validation']
+  # test_ds = dataset['test']
 
   return train_ds, val_ds, test_ds
 
