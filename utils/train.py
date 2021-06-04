@@ -6,7 +6,7 @@ from nltk.translate.bleu_score import corpus_bleu
 from tqdm import tqdm, trange
 import logging
 
-from utils.data import get_text, RU_field, translate, SAMPLES
+from utils.data import get_text, translate, SAMPLES
 
 CLIP = 1
 logger = logging.getLogger('runner')
@@ -84,8 +84,8 @@ def train_epochs(model,
                  criterion,
                  epochs,
                  writer: SummaryWriter,
-                 EN_field,
-                 RU_field):
+                 encode_en,
+                 token_to_word_ru):
   logger.info('Start training')
   best_loss = float('inf')
   train_losses = []
@@ -94,7 +94,7 @@ def train_epochs(model,
     train_epoch_loss = train_epoch(model, iterator_train, optimizer, criterion)
     val_epoch_loss = evaluate_epoch(model, iterator_val, criterion)
 
-    translated_samples = translate(model, SAMPLES, EN_field, RU_field)
+    translated_samples = translate(model, SAMPLES, encode_en, token_to_word_ru)
 
     train_losses.append(train_epoch_loss)
     val_losses.append(val_epoch_loss)
@@ -121,7 +121,7 @@ def train_epochs(model,
   logger.info('Finish training')
   return train_losses, val_losses
 
-def bleu_score(model, iterator_test):
+def bleu_score(model, iterator_test, ):
   logger.info('Start BLEU scoring')
   original_text = []
   generated_text = []

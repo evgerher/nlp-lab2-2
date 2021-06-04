@@ -218,7 +218,17 @@ if __name__ == '__main__':
 
   pad_idx = ru_vocab.stoi[PAD_TOKEN]
   optimizer, criterion, (train_iterator, valid_iterator, test_iterator) = prepare(train_params, seq2seq, dataset, device, pad_idx)
-  train_epochs(seq2seq, train_iterator, valid_iterator, optimizer, criterion, train_params['epochs'], writer, EN_field, RU_field)
+  train_epochs(
+    seq2seq,
+    train_iterator,
+    valid_iterator,
+    optimizer,
+    criterion,
+    train_params['epochs'],
+    writer,
+    lambda x, device: EN_field.process(x, device),
+    lambda token: RU_field.vocab.itos[token]
+  )
 
   score = bleu_score(seq2seq, test_iterator)
 

@@ -185,8 +185,8 @@ def remove_tech_tokens(mystr):
   return [x for x in mystr if x not in tokens_to_remove]
 
 
-def get_text(x, TRG_vocab):
-  text = [TRG_vocab.itos[token] for token in x]
+def get_text(x, token_to_word):
+  text = [token_to_word(token) for token in x]
   try:
     end_idx = text.index(EOS_TOKEN)
     text = text[:end_idx]
@@ -198,28 +198,28 @@ def get_text(x, TRG_vocab):
   return text
 
 
-def generate_translation(src, trg, model, TRG_vocab):
+def generate_translation(src, trg, model, token_to_word):
   with torch.no_grad():
     model.eval()
 
     output = model(src, trg, 0)  # turn off teacher forcing
     output = output.argmax(dim=-1).cpu().numpy()
 
-    original = get_text(list(trg[:, 0].cpu().numpy()), TRG_vocab)
-    generated = get_text(list(output[1:, 0]), TRG_vocab)
+    original = get_text(list(trg[:, 0].cpu().numpy()), token_to_word)
+    generated = get_text(list(output[1:, 0]), token_to_word)
 
     print('Original: {}'.format(' '.join(original)))
     print('Generated: {}'.format(' '.join(generated)))
     print()
 
-def translate(model, sentences: List[str], EN_field, RU_field, max_len=128):
+def translate(model, sentences: List[str], encode, token_to_word, max_len=128):
   with torch.no_grad():
     outs = []
     model.eval()
     for sentence in sentences:
-      en_tokens = EN_field.process([sentence], model.device)
+      en_tokens = encode([sentence], model.device)
       ru_tokens = model.translate(en_tokens, max_len=max_len)
-      ru_text = ' '.join(get_text(ru_tokens, RU_field.vocab))
+      ru_text = ' '.join(get_text(ru_tokens, token_to_word))
       outs.append(ru_text)
     return outs
 

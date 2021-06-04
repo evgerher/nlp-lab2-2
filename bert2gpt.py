@@ -1,4 +1,5 @@
 import random
+import json
 
 from torch import nn
 from torch.utils.tensorboard import SummaryWriter
@@ -9,73 +10,12 @@ from tokenizers.models import BPE
 from tokenizers.trainers import BpeTrainer
 from tokenizers.processors import TemplateProcessing
 
-from transformers import BertTokenizer, BertModel, GPT2Config, GPT2Model
+from transformers import BertTokenizer, BertModel, GPT2Config, GPT2Model, GPT2TokenizerFast, AutoTokenizer
 from utils.bert2gpt_utils import *
 from utils.logger import setup_logger
 from utils.train import prepare, train_epochs, bleu_score
 
 logger = logging.getLogger('runner')
-
-def resolve_rnn(input_size: int, cell_name: str, model_setup: dict) -> nn.Module:
-  if cell_name == 'GRU':
-    constructor = nn.GRU
-  elif cell_name == 'LSTM':
-    constructor = nn.LSTM
-  elif cell_name == 'RNN':
-    constructor = nn.RNN
-  else:
-    raise NotImplementedError()
-
-  return constructor(
-    input_size=input_size,
-    hidden_size=model_setup['hidden_size'],
-    dropout=model_setup['dropout'],
-    num_layers=model_setup['layers'],
-    bidirectional=model_setup['bidirectional']
-  )
-
-
-class RNN_ModelEncoder(nn.Module):
-  def __init__(self, cell_name: str, model_setup, embedding):
-    super(RNN_ModelEncoder, self).__init__()
-    self.input_dim = embedding.embedding_dim
-    self.hid_dim = model_setup['hidden_size']
-    self.nlayers = model_setup['layers']
-    self.bidirectional = model_setup['bidirectional']
-    self.rnn = resolve_rnn(embedding.embedding_dim, cell_name, model_setup)
-    self.embedding = embedding
-    self.cell_type = cell_name
-
-  def forward(self, input, hidden):
-    embeds = self.embedding(input)
-    if hidden is None and self.cell_type == 'LSTM':
-      hidden = (None, None)
-    output, new_hidden = self.rnn(embeds, hidden)
-    return output, new_hidden
-
-
-class RNN_ModelDecoder(nn.Module):
-  def __init__(self, cell_name: str, model_setup: dict, embedding: nn.Embedding, attention):
-    super().__init__()
-    self.out_classes = embedding.num_embeddings
-    self.attention = attention
-    self.input_dim = embedding.embedding_dim
-    self.hid_dim = model_setup['hidden_size']
-    self.nlayers = model_setup['layers']
-    self.rnn = resolve_rnn(embedding.embedding_dim, cell_name, model_setup)
-    self.embedding = embedding
-    self.dropout = nn.Dropout(model_setup['other_dropout'])
-    self.out = nn.Linear(model_setup['hidden_size'], self.out_classes)
-
-  def forward(self, input, hidden, encoder_outputs):
-    embeds = self.embedding(input).unsqueeze(0)
-    embeds = self.dropout(embeds)
-    output, hidden = self.rnn(embeds, hidden)
-    attn_weights = None
-    if self.attention:
-      output, attn_weights = self.attention(output, hidden, encoder_outputs)
-    output = self.out(output)
-    return output, hidden, attn_weights
 
 class BERT2GPT(nn.Module):
   def __init__(self,
@@ -92,6 +32,10 @@ class BERT2GPT(nn.Module):
     self.decoder_tokenizer = decoder_tokenizer
     self.device = device
     self.name = model_name
+
+    self.encoder.eval() # freezy encoder
+    for param in self.encoder.parameters():
+      param.requires_grad = False
 
   def forward(self, src, trg, teacher_forcing_ratio = 0.5):
     # src = src.T
@@ -125,11 +69,13 @@ class BERT2GPT(nn.Module):
 
     return outputs
 
+
+
   def translate(self, en_tokens, max_len: int):
     ru_tokens = []
     encoder_output_states, encoder_hidden = self.encoder(en_tokens, None)
-    input = torch.tensor([RU_field.vocab.stoi[BOS_TOKEN]], dtype=torch.long, device=self.device)
-    EOS_TOKEN_ID = RU_field.vocab.stoi[EOS_TOKEN]
+    input = torch.tensor([self.encoder_tokenizer.token_to_id(BOS_TOKEN)], dtype=torch.long, device=self.device)
+    EOS_TOKEN_ID = self.decoder_tokenizer.token_to_id(EOS_TOKEN)
     decoder_hidden = encoder_hidden[-2:]
     for t in range(1, max_len):
       output, decoder_hidden, _ = self.decoder(input, decoder_hidden, encoder_output_states)
@@ -147,7 +93,7 @@ def create_tokenizer_ru(files: List[str], fout_path='tokenizer_gpt_ru'):
     tokenizer = Tokenizer(bpe)
     tokenizer.pre_tokenizer = Whitespace()
 
-    trainer = BpeTrainer(special_tokens=[BOS_TOKEN, EOS_TOKEN, UNK_TOKEN, PAD_TOKEN])
+    trainer = BpeTrainer(special_tokens=[BOS_TOKEN, EOS_TOKEN, UNK_TOKEN, PAD_TOKEN, SEP_TOKEN])
     tokenizer.train(files, trainer)
 
     tokenizer.post_processor = TemplateProcessing(
@@ -156,13 +102,29 @@ def create_tokenizer_ru(files: List[str], fout_path='tokenizer_gpt_ru'):
       special_tokens=[
           ("[BOS]", tokenizer.token_to_id(BOS_TOKEN)),
           ("[EOS]", tokenizer.token_to_id(EOS_TOKEN)),
+          ("[SEP]", tokenizer.token_to_id(SEP_TOKEN)),
       ],
     )
     tokenizer.enable_padding(pad_token=PAD_TOKEN, pad_id=tokenizer.token_to_id(PAD_TOKEN))
     tokenizer.save(fout_path)
-  else:
-    tokenizer = Tokenizer.from_file(fout_path)
 
+    with open(fout_path, encoding='utf8') as f:
+      content = json.load(f)
+      vocab = content['model']['vocab']
+      merges = content['model']['merges']
+
+      with open(f'vocab-{fout_path}', 'w', encoding='utf8') as f:
+        json.dump(vocab, f)
+
+      with open(f'merges-{fout_path}', 'w', encoding='utf8') as f:
+        json.dump(merges, f)
+
+  tokenizer = GPT2TokenizerFast(f'vocab-{fout_path}',
+                                f'merges-{fout_path}',
+                                unk_token=UNK_TOKEN,
+                                bos_token=BOS_TOKEN,
+                                eos_token=EOS_TOKEN,
+                                model_max_length=1024)
   return tokenizer
 
 
@@ -183,19 +145,20 @@ def init_arguments():
 
 
 
-  dec_tokenizer = create_tokenizer_ru(['data.txt.ru'])
+  # dec_tokenizer = create_tokenizer_ru(['data.txt.ru'])
+  dec_tokenizer = AutoTokenizer.from_pretrained("DeepPavlov/rubert-base-cased")
   decoder_setup = {
     'n_ctx': 768,
-    'n_embd': 512,
+    'n_embd': 512, # self.head_dim * self.num_heads != self.embed_dim
     'n_layer': 12,
-    'n_head': 12,
-    'bos_token_id': dec_tokenizer.token_to_id(BOS_TOKEN),
-    'eos_token_id': dec_tokenizer.token_to_id(EOS_TOKEN),
-    'vocab_size': None, # todo: vocab_size from dec_tokenizer
+    'n_head': 8,
+    'bos_token_id': dec_tokenizer.bos_token_id,
+    'eos_token_id': dec_tokenizer.eos_token_id,
+    'vocab_size': len(dec_tokenizer.get_vocab())
   }
 
   decoder_config = GPT2Config(**decoder_setup)
-  dec_model = GPT2Model(**decoder_config)
+  dec_model = GPT2Model(decoder_config)
 
   RU_field = create_field(dec_tokenizer)
   EN_field = create_field(enc_tokenizer)
@@ -223,12 +186,24 @@ if __name__ == '__main__':
   model_name = 'bert2gpt'
   logger.info(f'Model {model_name}')
   writer = SummaryWriter('exp_bert2gpt')
-  encoderr, decoderr, (EN_field, RU_field), train_params = init_arguments()
+  (enc_tokenizer, enc_model), (dec_tokenizer, dec_model), (EN_field, RU_field), train_params = init_arguments()
   dataset = load_dataset_local(EN_field, RU_field, 'data.txt')
-  seq2seq, device = build_seq2seq(encoderr, decoderr, model_name)
+  seq2seq, device = build_seq2seq((enc_tokenizer, enc_model), (dec_tokenizer, dec_model), model_name)
 
-  pad_idx = seq2seq.decoder_tokenizer.token_to_id(PAD_TOKEN)
+  pad_idx = -100 # gpt2 does not use pad
   optimizer, criterion, (train_iterator, valid_iterator, test_iterator) = prepare(train_params, seq2seq, dataset, device, pad_idx)
   train_epochs(seq2seq, train_iterator, valid_iterator, optimizer, criterion, train_params['epochs'], writer, EN_field, RU_field)
+
+  train_epochs(
+    seq2seq,
+    train_iterator,
+    valid_iterator,
+    optimizer,
+    criterion,
+    train_params['epochs'],
+    writer,
+    lambda x, device: EN_field.process(x, device),
+    lambda token: dec_tokenizer.token_to_id(token)
+  )
 
   score = bleu_score(seq2seq, test_iterator)
