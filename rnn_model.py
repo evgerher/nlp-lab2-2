@@ -1,14 +1,13 @@
 import random
-import logging
 
 import torch
 from torch.utils.tensorboard import SummaryWriter
-import torch.nn.functional as F
+from torch import nn
 
-from attention import LuongAttention
-from data import *
-from logger import setup_logger
-from train import prepare, train_epoch, train_epochs, bleu_score
+from utils.attention import LuongAttention
+from utils.rnn_utils import *
+from utils.logger import setup_logger
+from utils.train import prepare, train_epochs, bleu_score
 
 logger = logging.getLogger('runner')
 
@@ -171,12 +170,12 @@ def init_arguments():
 
 
 def init_embeds(encoder_setup, decoder_setup, dec_emb_setup, train_params):
-  # train_data, valid_data, test_data = load_dataset_local('data.txt')
-  # en_vocab = build_vocab_en(train_data)
-  # ru_vocab = build_vocab(RU_field, train_data)
-  train_data, valid_data, test_data = load_dataset_opus()
-  en_vocab = EN_field.vocab
-  ru_vocab = RU_field.vocab
+  train_data, valid_data, test_data = load_dataset_local(EN_field, RU_field, 'data.txt')
+  en_vocab = build_vocab_en(EN_field, train_data)
+  ru_vocab = build_vocab(RU_field, train_data)
+  # train_data, valid_data, test_data = load_dataset_opus(EN_field, RU_field)
+  # en_vocab = EN_field.vocab
+  # ru_vocab = RU_field.vocab
 
 
 
@@ -186,7 +185,7 @@ def init_embeds(encoder_setup, decoder_setup, dec_emb_setup, train_params):
   weights[mask] = torch.normal(mean, std, weights[mask].size())
 
   n_tokens = len(ru_vocab.stoi)
-  encoder_embedding = nn.Embedding.from_pretrained(weights, padding_idx=en_vocab.stoi[PAD_TOKEN])
+  encoder_embedding = nn.Embedding.from_pretrained(weights, freeze=False, padding_idx=en_vocab.stoi[PAD_TOKEN])
   decoder_embedding = nn.Embedding(n_tokens, dec_emb_setup['embedding_size'], padding_idx=ru_vocab.stoi[PAD_TOKEN])
 
   attention = LuongAttention(decoder_setup['hidden_size'], encoder_setup['bidirectional'], n_tokens)
@@ -219,7 +218,7 @@ if __name__ == '__main__':
 
   pad_idx = ru_vocab.stoi[PAD_TOKEN]
   optimizer, criterion, (train_iterator, valid_iterator, test_iterator) = prepare(train_params, seq2seq, dataset, device, pad_idx)
-  train_epochs(seq2seq, train_iterator, valid_iterator, optimizer, criterion, train_params['epochs'], writer)
+  train_epochs(seq2seq, train_iterator, valid_iterator, optimizer, criterion, train_params['epochs'], writer, EN_field, RU_field)
 
   score = bleu_score(seq2seq, test_iterator)
 
