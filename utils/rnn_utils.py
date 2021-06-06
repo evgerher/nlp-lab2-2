@@ -1,3 +1,5 @@
+from torchtext.legacy.data import BucketIterator
+
 from data import *
 
 
@@ -69,3 +71,20 @@ RU_field = Field(
 
 EN_field.numericalize = lambda *args, **kwargs: numericalize(EN_field, *args, **kwargs)
 RU_field.numericalize = lambda *args, **kwargs: numericalize(RU_field, *args, **kwargs)
+
+def _len_sort_key(x):
+  return len(x.en)
+
+def prepare_iterators(train_data, valid_data, test_data, BATCH_SIZE, device):
+  train_iterator, valid_iterator, test_iterator = BucketIterator.splits(
+    (train_data, valid_data, test_data),
+    batch_size=BATCH_SIZE,
+    device=device,
+    sort_key=_len_sort_key
+  )
+
+  return train_iterator, valid_iterator, test_iterator
+
+def labels_from_target(trg):
+  trg = trg[1:].view(-1)
+  return trg

@@ -185,8 +185,8 @@ def remove_tech_tokens(mystr):
   return [x for x in mystr if x not in tokens_to_remove]
 
 
-def get_text(x, token_to_word):
-  text = [token_to_word(token) for token in x]
+def get_text(x, id_to_word):
+  text = [id_to_word(token) for token in x]
   try:
     end_idx = text.index(EOS_TOKEN)
     text = text[:end_idx]
@@ -212,14 +212,14 @@ def generate_translation(src, trg, model, token_to_word):
     print('Generated: {}'.format(' '.join(generated)))
     print()
 
-def translate(model, sentences: List[str], encode, token_to_word, max_len=128):
+def translate(model, sentences: List[str], encode_en, decode_ru, max_len=128):
   with torch.no_grad():
     outs = []
     model.eval()
     for sentence in sentences:
-      en_tokens = encode([sentence], model.device)
+      en_tokens = encode_en([sentence], model.device)
       ru_tokens = model.translate(en_tokens, max_len=max_len)
-      ru_text = ' '.join(get_text(ru_tokens, token_to_word))
+      ru_text = ' '.join(get_text(ru_tokens, decode_ru)) # todo: model.decoder_tokenizer.decode(ru_tokens) for BERT2GPT
       outs.append(ru_text)
     return outs
 

@@ -11,26 +11,17 @@ from utils.data import get_text, translate, SAMPLES
 CLIP = 1
 logger = logging.getLogger('runner')
 
-
-def _len_sort_key(x):
-  return len(x.en)
-
-def prepare(train_params, model, dataset, device, pad_idx):
+def prepare(train_params, model, dataset, device, pad_idx, prepare_iterators, **kwargs):
   BATCH_SIZE = train_params['batch_size']
   train_data, valid_data, test_data = dataset
-  train_iterator, valid_iterator, test_iterator = BucketIterator.splits(
-    (train_data, valid_data, test_data),
-    batch_size=BATCH_SIZE,
-    device=device,
-    sort_key=_len_sort_key
-  )
+  train_iterator, valid_iterator, test_iterator = prepare_iterators(train_data, valid_data, test_data, BATCH_SIZE, device, **kwargs)
 
   optimizer = optim.Adam(model.parameters(), lr=train_params['lr'])
   criterion = nn.CrossEntropyLoss(ignore_index=pad_idx)
   return optimizer, criterion, (train_iterator, valid_iterator, test_iterator)
 
 
-def train_epoch(model, iterator, optimizer, criterion):
+def train_epoch(model, iterator, optimizer, criterion, labels_from_target):
   model.train()
   epoch_loss = 0
   for i, batch in enumerate(iterator):
@@ -43,12 +34,12 @@ def train_epoch(model, iterator, optimizer, criterion):
     # trg = [trg sent len, batch size]
     # output = [trg sent len, batch size, output dim]
     output = output.view(-1, output.shape[-1])
-    trg = trg[1:].view(-1)
+    expected_labels = labels_from_target(trg)
 
     # trg = [(trg sent len - 1) * batch size]
     # output = [(trg sent len - 1) * batch size, output dim]
 
-    loss = criterion(output, trg)
+    loss = criterion(output, expected_labels)
     loss.backward()
     # Let's clip the gradient
     torch.nn.utils.clip_grad_norm_(model.parameters(), CLIP)
@@ -56,7 +47,7 @@ def train_epoch(model, iterator, optimizer, criterion):
     epoch_loss += loss.item()
   return epoch_loss / len(iterator)
 
-def evaluate_epoch(model, iterator, criterion):
+def evaluate_epoch(model, iterator, criterion, labels_from_target):
   model.eval()
   epoch_loss = 0
   with torch.no_grad():
@@ -68,11 +59,11 @@ def evaluate_epoch(model, iterator, criterion):
       # trg = [trg sent len, batch size]
       # output = [trg sent len, batch size, output dim]
       output = output.view(-1, output.shape[-1])
-      trg = trg[1:].view(-1)
+      expected_labels = labels_from_target(trg)
 
       # trg = [(trg sent len - 1) * batch size]
       # output = [(trg sent len - 1) * batch size, output dim]
-      loss = criterion(output, trg)
+      loss = criterion(output, expected_labels)
       epoch_loss += loss.item()
   return epoch_loss / len(iterator)
 
@@ -85,14 +76,15 @@ def train_epochs(model,
                  epochs,
                  writer: SummaryWriter,
                  encode_en,
-                 token_to_word_ru):
+                 token_to_word_ru,
+                 labels_from_target):
   logger.info('Start training')
   best_loss = float('inf')
   train_losses = []
   val_losses = []
   for epoch in trange(1, epochs + 1):
-    train_epoch_loss = train_epoch(model, iterator_train, optimizer, criterion)
-    val_epoch_loss = evaluate_epoch(model, iterator_val, criterion)
+    train_epoch_loss = train_epoch(model, iterator_train, optimizer, criterion, labels_from_target)
+    val_epoch_loss = evaluate_epoch(model, iterator_val, criterion, labels_from_target)
 
     translated_samples = translate(model, SAMPLES, encode_en, token_to_word_ru)
 
@@ -121,7 +113,7 @@ def train_epochs(model,
   logger.info('Finish training')
   return train_losses, val_losses
 
-def bleu_score(model, iterator_test, ):
+def bleu_score(model, iterator_test, token_to_word):
   logger.info('Start BLEU scoring')
   original_text = []
   generated_text = []
@@ -138,8 +130,8 @@ def bleu_score(model, iterator_test, ):
 
       output = output.argmax(dim=-1)
 
-      original_text.extend([get_text(x, RU_field.vocab) for x in trg.cpu().numpy().T])
-      generated_text.extend([get_text(x, RU_field.vocab) for x in output[1:].detach().cpu().numpy().T])
+      original_text.extend([get_text(x, token_to_word) for x in trg.cpu().numpy().T])
+      generated_text.extend([get_text(x, token_to_word) for x in output[1:].detach().cpu().numpy().T])
   logger.info('Finished BLEU scoring')
   score = corpus_bleu([[text] for text in original_text], generated_text) * 100
   logger.info('BLEU score: %.2f', score)

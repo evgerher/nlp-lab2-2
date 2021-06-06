@@ -112,14 +112,13 @@ class RNN2RNN(nn.Module):
     input = trg[0, :]
     decoder_hidden = encoder_hidden[-2:]
     for t in range(1, max_len):
-      # todo: i am not expecting softmax or log_softmax
       output, decoder_hidden, _ = self.decoder(input, decoder_hidden, encoder_output_states)
       outputs[t - 1] = output
       teacher_force = random.random() < teacher_forcing_ratio
       top1 = output.max(1)[1]
       input = (trg[t] if teacher_force else top1)
 
-    return outputs
+    return outputs # todo: softmax here?
 
   def translate(self, en_tokens, max_len: int):
     ru_tokens = []
@@ -212,12 +211,17 @@ if __name__ == '__main__':
   logger.info(f'Model {model_name}')
   writer = SummaryWriter('exp_RNN2RNN')
   encoder_setup, decoder_setup, dec_emb_setup, train_params = init_arguments()
-  train_params, setups, vocabs, embeds, attention, dataset = init_embeds(encoder_setup, decoder_setup, dec_emb_setup, train_params)
+  train_params, setups, vocabs, embeds, attention, datasets = init_embeds(encoder_setup, decoder_setup, dec_emb_setup, train_params)
   (en_vocab, ru_vocab) = vocabs
   seq2seq, device = build_seq2seq(setups, embeds, attention, model_name)
 
   pad_idx = ru_vocab.stoi[PAD_TOKEN]
-  optimizer, criterion, (train_iterator, valid_iterator, test_iterator) = prepare(train_params, seq2seq, dataset, device, pad_idx)
+  optimizer, criterion, (train_iterator, valid_iterator, test_iterator) = prepare(train_params,
+                                                                                  seq2seq,
+                                                                                  datasets,
+                                                                                  device,
+                                                                                  pad_idx,
+                                                                                  prepare_iterators)
   train_epochs(
     seq2seq,
     train_iterator,
@@ -227,8 +231,9 @@ if __name__ == '__main__':
     train_params['epochs'],
     writer,
     lambda x, device: EN_field.process(x, device),
-    lambda token: RU_field.vocab.itos[token]
+    lambda token: RU_field.vocab.itos[token],
+    labels_from_target
   )
 
-  score = bleu_score(seq2seq, test_iterator)
+  score = bleu_score(seq2seq, test_iterator, lambda token: RU_field.vocab.itos[token])
 

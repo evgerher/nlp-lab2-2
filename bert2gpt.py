@@ -10,7 +10,7 @@ from tokenizers.models import BPE
 from tokenizers.trainers import BpeTrainer
 from tokenizers.processors import TemplateProcessing
 
-from transformers import BertTokenizer, BertModel, GPT2Config, GPT2Model, GPT2TokenizerFast, AutoTokenizer
+from transformers import BertTokenizer, BertModel, GPT2Config, GPT2TokenizerFast, AutoTokenizer, GPT2LMHeadModel
 from utils.bert2gpt_utils import *
 from utils.logger import setup_logger
 from utils.train import prepare, train_epochs, bleu_score
@@ -38,51 +38,75 @@ class BERT2GPT(nn.Module):
       param.requires_grad = False
 
   def forward(self, src, trg, teacher_forcing_ratio = 0.5):
-    # src = src.T
-    # trg = trg.T
-    # src = [src sent len, batch size]
-    # trg = [trg sent len, batch size]
-    # teacher_forcing_ratio is probability to use teacher forcing
-    # e.g. if teacher_forcing_ratio is 0.75 we use ground-truth inputs 75% of the time
-
-    # Again, now batch is the first dimention instead of zero
-    batch_size = trg.shape[1]
-    max_len = trg.shape[0]  # todo: look precisely here
-    trg_vocab_size = self.decoder.embedding.num_embeddings  # todo: what ?
+    batch_size = trg['input_ids'].shape[0]
+    max_len = trg['input_ids'].shape[1]
+    trg_vocab_size = len(self.decoder_tokenizer.get_vocab())
 
     # tensor to store decoder outputs
     outputs = torch.zeros((max_len - 1, batch_size, trg_vocab_size), device=self.device)
 
     # last hidden state of the encoder is used as the initial hidden state of the decoder
-    encoder_output_states, encoder_hidden = self.encoder(src, None)  # encoder_hidden can be pair
+    encoder_out = self.encoder(**src)  # encoder_hidden can be pair
 
-    # first input to the decoder is the <bos> tokens
-    input = trg[0, :]
-    decoder_hidden = encoder_hidden[-2:]
+    trg['encoder_hidden_states'] = encoder_out['last_hidden_state']
+    trg['encoder_attention_mask'] = src['attention_mask']
+
+    idx = 0
+    new_trg = {
+      'input_ids': trg['input_ids'][:, [idx]], # [batch, seq_len]
+      'attention_mask': trg['attention_mask'][:, [idx]],
+      'past_key_values': None,
+      'use_cache': True,
+      'encoder_attention_mask': src['attention_mask'],
+      'encoder_hidden_states': encoder_out['last_hidden_state']
+    }
+
     for t in range(1, max_len):
-      # todo: i am not expecting softmax or log_softmax
-      output, decoder_hidden, _ = self.decoder(input, decoder_hidden, encoder_output_states)
-      outputs[t - 1] = output
+      idx += 1
+      decoder_out = self.decoder(**new_trg)
+      logits = decoder_out['logits'].squeeze(1)
+      outputs[t - 1] = logits
       teacher_force = random.random() < teacher_forcing_ratio
-      top1 = output.max(1)[1]
-      input = (trg[t] if teacher_force else top1)
+      top1 = logits.max(1)[1]
 
-    return outputs
+      if teacher_force:
+        new_trg['input_ids'] = trg['input_ids'][:, [idx]]
+      else:
+        new_trg['input_ids'] = top1.unsqueeze(1)
+      new_trg['attention_mask'] = trg['attention_mask'][:, [idx]]
+      new_trg['past_key_values'] = decoder_out['past_key_values']
+
+    return outputs # todo: softmax here?
 
 
 
   def translate(self, en_tokens, max_len: int):
     ru_tokens = []
-    encoder_output_states, encoder_hidden = self.encoder(en_tokens, None)
-    input = torch.tensor([self.encoder_tokenizer.token_to_id(BOS_TOKEN)], dtype=torch.long, device=self.device)
-    EOS_TOKEN_ID = self.decoder_tokenizer.token_to_id(EOS_TOKEN)
-    decoder_hidden = encoder_hidden[-2:]
+    batch_size = en_tokens['input_ids'].shape[0]
+    encoder_out = self.encoder(**en_tokens)
+
+    CLS_TOKEN_ID = self.decoder_tokenizer.cls_token_id
+    SEP_TOKEN_ID = self.decoder_tokenizer.sep_token_id
+
+    input_ids = torch.tensor([[CLS_TOKEN_ID] * batch_size], dtype=torch.long, device=self.device)
+    attn_mask = torch.ones([batch_size, 1], dtype=torch.long, device=self.device)
+    trg = {
+      'input_ids': input_ids,
+      'attention_mask': attn_mask,
+      'past_key_values': None,
+      'use_cache': True,
+      'encoder_attention_mask': en_tokens['attention_mask'],
+      'encoder_hidden_states': encoder_out['last_hidden_state']
+    }
+
     for t in range(1, max_len):
-      output, decoder_hidden, _ = self.decoder(input, decoder_hidden, encoder_output_states)
-      input = output.max(1)[1]
+      decoder_out = self.decoder(**trg)
+      logits = decoder_out['logits'].squeeze(1)
+      input = logits.max(1)[1]
+      trg['input_ids'] = input.unsqueeze(1)
       token = input.item()
       ru_tokens.append(token)
-      if token == EOS_TOKEN_ID:
+      if token == SEP_TOKEN_ID:
         break
     return ru_tokens
 
@@ -147,30 +171,28 @@ def init_arguments():
 
   # dec_tokenizer = create_tokenizer_ru(['data.txt.ru'])
   dec_tokenizer = AutoTokenizer.from_pretrained("DeepPavlov/rubert-base-cased")
+  dec_tokenizer.add_special_tokens({'bos_token': BOS_TOKEN, 'eos_token': EOS_TOKEN})
   decoder_setup = {
     'n_ctx': 768,
-    'n_embd': 512, # self.head_dim * self.num_heads != self.embed_dim
-    'n_layer': 12,
+    'n_embd': 768, # self.head_dim * self.num_heads != self.embed_dim
+    'n_layer': 8,
     'n_head': 8,
     'bos_token_id': dec_tokenizer.bos_token_id,
     'eos_token_id': dec_tokenizer.eos_token_id,
-    'vocab_size': len(dec_tokenizer.get_vocab())
+    'vocab_size': len(dec_tokenizer.get_vocab()),
+    'add_cross_attention': True
   }
 
   decoder_config = GPT2Config(**decoder_setup)
-  dec_model = GPT2Model(decoder_config)
-
-  RU_field = create_field(dec_tokenizer)
-  EN_field = create_field(enc_tokenizer)
-
+  dec_model = GPT2LMHeadModel(decoder_config)
 
   train_params = {
     'lr': 0.001,
     'epochs': 15,
-    'batch_size': 128
+    'batch_size': 16
   }
 
-  return (enc_tokenizer, enc_model), (dec_tokenizer, dec_model), (EN_field, RU_field), train_params
+  return (enc_tokenizer, enc_model), (dec_tokenizer, dec_model), train_params
 
 
 
@@ -186,15 +208,22 @@ if __name__ == '__main__':
   model_name = 'bert2gpt'
   logger.info(f'Model {model_name}')
   writer = SummaryWriter('exp_bert2gpt')
-  (enc_tokenizer, enc_model), (dec_tokenizer, dec_model), (EN_field, RU_field), train_params = init_arguments()
-  dataset = load_dataset_local(EN_field, RU_field, 'data.txt')
+  (enc_tokenizer, enc_model), (dec_tokenizer, dec_model), train_params = init_arguments()
+  datasets = TranslationDataset.from_file('data.txt', '\t').split([0.8, 0.15, 0.05])
   seq2seq, device = build_seq2seq((enc_tokenizer, enc_model), (dec_tokenizer, dec_model), model_name)
 
   pad_idx = -100 # gpt2 does not use pad
-  optimizer, criterion, (train_iterator, valid_iterator, test_iterator) = prepare(train_params, seq2seq, dataset, device, pad_idx)
-  train_epochs(seq2seq, train_iterator, valid_iterator, optimizer, criterion, train_params['epochs'], writer, EN_field, RU_field)
+  closured_collate = build_collator(enc_tokenizer, dec_tokenizer, device)
+  optimizer, criterion, (train_iterator, valid_iterator, test_iterator) = prepare(train_params,
+                                                                                  seq2seq,
+                                                                                  datasets,
+                                                                                  device,
+                                                                                  pad_idx,
+                                                                                  prepare_iterators,
+                                                                                  num_workers=0,
+                                                                                  collate_fn=closured_collate)
 
-  train_epochs(
+  train_epochs( # todo: тренировка gpt2 - на каждом шаге менять attention mask
     seq2seq,
     train_iterator,
     valid_iterator,
@@ -202,8 +231,9 @@ if __name__ == '__main__':
     criterion,
     train_params['epochs'],
     writer,
-    lambda x, device: EN_field.process(x, device),
-    lambda token: dec_tokenizer.token_to_id(token)
+    lambda x, device: enc_tokenizer(x, return_tensors='pt', padding=True).to(device),
+    lambda token_id: dec_tokenizer.decode(token_id),
+    labels_from_target
   )
 
-  score = bleu_score(seq2seq, test_iterator)
+  score = bleu_score(seq2seq, test_iterator, dec_tokenizer.token_to_id)
