@@ -159,8 +159,8 @@ def init_arguments():
   }
 
   train_params = {
-    'lr': 0.001,
-    'epochs': 45,
+    'lr': 5e-4,
+    'epochs': 30,
     'batch_size': 128
   }
 
