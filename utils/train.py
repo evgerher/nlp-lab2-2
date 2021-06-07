@@ -26,7 +26,7 @@ def train_epoch(model, iterator, optimizer, criterion, labels_from_target):
   model.train()
   epoch_loss = 0
   for i, batch in enumerate(iterator):
-    src = batch.en
+    src = batch.en.T
     trg = batch.ru
 
     optimizer.zero_grad()
@@ -53,7 +53,7 @@ def evaluate_epoch(model, iterator, criterion, labels_from_target):
   epoch_loss = 0
   with torch.no_grad():
     for i, batch in enumerate(iterator):
-      src = batch.en
+      src = batch.en.T
       trg = batch.ru
 
       output = model(src, trg, 0)  # turn off teacher forcing

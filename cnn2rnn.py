@@ -139,7 +139,7 @@ class CNN2RNN(nn.Module):
 
   def translate(self, en_tokens, max_len: int):
     ru_tokens = []
-    conved, combined = self.encoder(en_tokens)
+    conved, combined = self.encoder(en_tokens.T)
     combined_new = self.adapter(combined)
     input = torch.tensor([RU_field.vocab.stoi[BOS_TOKEN]], dtype=torch.long, device=self.device)
     EOS_TOKEN_ID = RU_field.vocab.stoi[EOS_TOKEN]
