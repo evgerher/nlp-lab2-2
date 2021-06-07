@@ -8,6 +8,7 @@ from utils.attention import LuongAttention
 from utils.rnn_utils import *
 from utils.logger import setup_logger
 from utils.train import prepare, train_epochs, bleu_score
+from utils.cnn2rnn_utils import labels_from_target
 
 logger = logging.getLogger('runner')
 
