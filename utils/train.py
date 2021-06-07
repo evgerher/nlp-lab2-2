@@ -18,7 +18,8 @@ def prepare(train_params, model, dataset, device, pad_idx, prepare_iterators, **
 
   optimizer = optim.Adam(model.parameters(), lr=train_params['lr'])
   criterion = nn.CrossEntropyLoss(ignore_index=pad_idx)
-  return optimizer, criterion, (train_iterator, valid_iterator, test_iterator)
+  scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer)
+  return optimizer, scheduler, criterion, (train_iterator, valid_iterator, test_iterator)
 
 
 def train_epoch(model, iterator, optimizer, criterion, labels_from_target):
@@ -64,7 +65,7 @@ def evaluate_epoch(model, iterator, criterion, labels_from_target):
       # trg = [(trg sent len - 1) * batch size]
       # output = [(trg sent len - 1) * batch size, output dim]
       loss = criterion(output, expected_labels)
-      epoch_loss += loss.item()
+      epoch_loss += loss
   return epoch_loss / len(iterator)
 
 
@@ -72,6 +73,7 @@ def train_epochs(model,
                  iterator_train,
                  iterator_val,
                  optimizer,
+                 scheduler,
                  criterion,
                  epochs,
                  writer: SummaryWriter,
@@ -85,6 +87,8 @@ def train_epochs(model,
   for epoch in trange(1, epochs + 1):
     train_epoch_loss = train_epoch(model, iterator_train, optimizer, criterion, labels_from_target) # todo: bert2gpt - tokens repeat - think b' past_key_values!
     val_epoch_loss = evaluate_epoch(model, iterator_val, criterion, labels_from_target)
+    scheduler.step(val_epoch_loss)
+    val_epoch_loss = val_epoch_loss.item()
 
     translated_samples = translate(model, SAMPLES, encode_en, get_text)
 

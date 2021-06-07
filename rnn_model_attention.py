@@ -215,7 +215,7 @@ if __name__ == '__main__':
   seq2seq, device = build_seq2seq(setups, embeds, attention, model_name)
 
   pad_idx = ru_vocab.stoi[PAD_TOKEN]
-  optimizer, criterion, (train_iterator, valid_iterator, test_iterator) = prepare(train_params,
+  optimizer, scheduler, criterion, (train_iterator, valid_iterator, test_iterator) = prepare(train_params,
                                                                                   seq2seq,
                                                                                   datasets,
                                                                                   device,
@@ -227,6 +227,7 @@ if __name__ == '__main__':
     train_iterator,
     valid_iterator,
     optimizer,
+    scheduler,
     criterion,
     train_params['epochs'],
     writer,

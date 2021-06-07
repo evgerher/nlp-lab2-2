@@ -18,9 +18,8 @@ VOCAB = List[str]
 
 
 SAMPLES = [
-  'What does it mean to be a god?',
-  'The prices of oil suddenly risen',
-  'I am not a doctor, silly you!'
+  'This swimming pool is so huge',
+  'A room in budapest hotel has 3 toilets',
 ]
 
 def tokenization(x):
@@ -86,7 +85,7 @@ def load_dataset_opus(EN_field, RU_field):
     val_ds = dataset['validation']
     test_ds = dataset['test']
 
-    build_vocab_en([x['en'] for x in train_ds['translation']])
+    build_vocab_en(EN_field, [x['en'] for x in train_ds['translation']])
     build_vocab(RU_field, [x['ru'] for x in train_ds['translation']])
 
     dataset = dataset.map(lambda x: {

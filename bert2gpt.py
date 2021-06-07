@@ -218,7 +218,7 @@ if __name__ == '__main__':
 
   pad_idx = dec_tokenizer.pad_token_id
   closured_collate = build_collator(enc_tokenizer, dec_tokenizer, device)
-  optimizer, criterion, (train_iterator, valid_iterator, test_iterator) = prepare(train_params,
+  optimizer, scheduler, criterion, (train_iterator, valid_iterator, test_iterator) = prepare(train_params,
                                                                                   seq2seq,
                                                                                   datasets,
                                                                                   device,
@@ -232,6 +232,7 @@ if __name__ == '__main__':
     train_iterator,
     valid_iterator,
     optimizer,
+    scheduler,
     criterion,
     train_params['epochs'],
     writer,
