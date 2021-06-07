@@ -67,7 +67,7 @@ def build_collator(enc_tokenizer, dec_tokenizer, device):
     ens, rus = list(ens), list(rus)
 
     en_input = enc_tokenizer(ens, return_tensors='pt', padding=True).to(device)
-    ru_input = dec_tokenizer(rus, return_tensors='pt', padding=True).to(device)
+    ru_input = dec_tokenizer(rus).to(device)
 
     return enru(en_input, ru_input)
   return collate_fn

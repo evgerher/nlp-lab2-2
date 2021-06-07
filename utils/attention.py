@@ -13,7 +13,7 @@ class LuongAttention(Attention):
     self.bidirectional_encoder = bidirectional_encoder
     self.hidden_size = hidden_size
 
-    context_size = self.hidden_size * 2 if self.bidirectional_encoder else 1
+    context_size = self.hidden_size * (2 if self.bidirectional_encoder else 1)
     self.attn = nn.Linear(self.hidden_size, context_size)
     self.concat = nn.Linear(self.hidden_size + context_size, self.hidden_size)
 
