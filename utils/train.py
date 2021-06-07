@@ -30,7 +30,11 @@ def train_epoch(model, iterator, optimizer, criterion, labels_from_target):
     trg = batch.ru
 
     optimizer.zero_grad()
-    output = model(src, trg)
+    if 'cnn' in model.name.lower():
+      tt = trg[:-1]
+    else:
+      tt = trg
+    output = model(src, tt)
 
     # trg = [trg sent len, batch size]
     # output = [trg sent len, batch size, output dim]

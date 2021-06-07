@@ -29,7 +29,8 @@ def tokenization(x):
 def build_vocab(field, preprocessed_text, vectors=None):
   field.build_vocab(
       preprocessed_text,
-      vectors=vectors
+      vectors=vectors,
+      min_freq = 3
   )
   # get the vocab instance
   vocab = field.vocab

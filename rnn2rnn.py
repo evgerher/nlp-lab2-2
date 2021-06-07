@@ -99,7 +99,7 @@ class RNN2RNN(nn.Module):
     # Again, now batch is the first dimention instead of zero
     batch_size = trg.shape[1]
     max_len = trg.shape[0]  # todo: look precisely here
-    trg_vocab_size = self.decoder.embedding.num_embeddings  # todo: what ?
+    trg_vocab_size = self.decoder.embedding.num_embeddings  
 
     # tensor to store decoder outputs
     outputs = torch.zeros((max_len - 1, batch_size, trg_vocab_size), device=self.device)
@@ -146,7 +146,7 @@ def init_arguments():
 
   decoder_setup = {
     'hidden_size': 256,
-    'input_size': 200,
+    'input_size': 300,
     'bidirectional': False,
     'dropout': 0.4,
     'other_dropout': 0.3,
