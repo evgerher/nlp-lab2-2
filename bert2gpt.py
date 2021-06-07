@@ -74,7 +74,7 @@ class BERT2GPT(nn.Module):
       else:
         new_trg['input_ids'] = top1.unsqueeze(1)
       new_trg['attention_mask'] = trg['attention_mask'][:, [idx]]
-      new_trg['past_key_values'] = decoder_out['past_key_values']
+      # new_trg['past_key_values'] = decoder_out['past_key_values']
 
     return outputs # todo: softmax here?
 
@@ -104,6 +104,7 @@ class BERT2GPT(nn.Module):
       logits = decoder_out['logits'].squeeze(1)
       input = logits.max(1)[1]
       trg['input_ids'] = input.unsqueeze(1)
+      # trg['past_key_values'] = decoder_out['past_key_values'] # todo: should I use it?
       token = input.item()
       ru_tokens.append(token)
       if token == SEP_TOKEN_ID:
@@ -150,7 +151,6 @@ def create_tokenizer_ru(files: List[str], fout_path='tokenizer_gpt_ru'):
                                 eos_token=EOS_TOKEN,
                                 model_max_length=1024)
   return tokenizer
-
 
 
 def init_arguments():
@@ -222,7 +222,7 @@ if __name__ == '__main__':
                                                                                   prepare_iterators,
                                                                                   num_workers=0,
                                                                                   collate_fn=closured_collate)
-
+  convert_text = lambda x: get_text(x, dec_tokenizer)
   train_epochs( # todo: тренировка gpt2 - на каждом шаге менять attention mask
     seq2seq,
     train_iterator,
@@ -232,7 +232,7 @@ if __name__ == '__main__':
     train_params['epochs'],
     writer,
     lambda x, device: enc_tokenizer(x, return_tensors='pt', padding=True).to(device),
-    lambda token_id: dec_tokenizer.decode(token_id),
+    convert_text,
     labels_from_target
   )
 

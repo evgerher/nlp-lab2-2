@@ -84,3 +84,6 @@ def prepare_iterators(train_data, valid_data, test_data, BATCH_SIZE, device, col
 def labels_from_target(trg):
   labels = trg['input_ids']
   return labels[:, 1:].reshape(-1) # batch_size, seq_len
+
+def get_text(x, tokenizer):
+  return tokenizer.decode(x)

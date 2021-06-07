@@ -119,6 +119,7 @@ def load_dataset_opus(EN_field, RU_field):
       fw.write(examples[-1]['en'])
       fw.write('\t')
       fw.write(examples[-1]['ru'])
+
   dataset = TabularDataset(
     path=tsv_path,
     format='tsv',
@@ -126,55 +127,6 @@ def load_dataset_opus(EN_field, RU_field):
   )
   train_data, valid_data, test_data = dataset.split(split_ratio=[0.8, 0.15, 0.05])
   return train_data, valid_data, test_data
-
-  #
-  # train_ds = dataset['train']
-  # val_ds = dataset['validation']
-  # test_ds = dataset['test']
-
-  return train_ds, val_ds, test_ds
-
-  # train_ds = [torchtext.legacy.data.Example.fromlist(
-  #   [y['en'], y['ru']],
-  #   [('en', EN_field), ('ru', RU_field)])
-  #  for y in train_ds]
-  # val_ds = [torchtext.legacy.data.Example.fromlist(
-  #   [y['en'], y['ru']],
-  #   [('en', EN_field), ('ru', RU_field)])
-  # for y in val_ds]
-  # test_ds = [torchtext.legacy.data.Example.fromlist(
-  #   [y['en'], y['ru']],
-  #   [('en', EN_field), ('ru', RU_field)])
-  # for y in test_ds]
-
-  # train_ds, val_ds, test_ds = [[torchtext.legacy.data.Example.fromlist(
-  #   [y['en'], y['ru']],
-  #   [('en', EN_field), ('ru', RU_field)])
-  # ] for x in [train_ds, val_ds, test_ds] for y in x]
-
-  # train_ds, val_ds, test_ds = [
-  #   torchtext.legacy.data.Dataset(
-  #     ds,
-  #     [('en', EN_field), ('ru', RU_field)]
-  #   ) for ds in [train_ds, val_ds, test_ds]
-  # ]
-
-  # def conversion(examples):
-  #   d = {'en': [], 'ru': []}
-  #   for item in examples:
-  #     d['en'].append(item['en'])
-  #     d['ru'].append(item['ru'])
-  #   return d
-  #
-  # train_ds, val_ds, test_ds = [
-  #   TabularDataset_From_List(
-  #     conversion(x),
-  #     'dict',
-  #     [('en', EN_field), ('ru', RU_field)]
-  #   ) for x in [train_ds, val_ds, test_ds]
-  # ]
-
-  # return train_ds, val_ds, test_ds
 
 
 def flatten(l):
@@ -185,43 +137,13 @@ def remove_tech_tokens(mystr):
   return [x for x in mystr if x not in tokens_to_remove]
 
 
-def get_text(x, id_to_word):
-  text = [id_to_word(token) for token in x]
-  try:
-    end_idx = text.index(EOS_TOKEN)
-    text = text[:end_idx]
-  except ValueError:
-    pass
-  text = remove_tech_tokens(text)
-  if len(text) < 1:
-    text = []
-  return text
-
-
-def generate_translation(src, trg, model, token_to_word):
-  with torch.no_grad():
-    model.eval()
-
-    output = model(src, trg, 0)  # turn off teacher forcing
-    output = output.argmax(dim=-1).cpu().numpy()
-
-    original = get_text(list(trg[:, 0].cpu().numpy()), token_to_word)
-    generated = get_text(list(output[1:, 0]), token_to_word)
-
-    print('Original: {}'.format(' '.join(original)))
-    print('Generated: {}'.format(' '.join(generated)))
-    print()
-
-def translate(model, sentences: List[str], encode_en, decode_ru, max_len=128):
+def translate(model, sentences: List[str], encode_en, get_text, max_len=128):
   with torch.no_grad():
     outs = []
     model.eval()
     for sentence in sentences:
       en_tokens = encode_en([sentence], model.device)
       ru_tokens = model.translate(en_tokens, max_len=max_len)
-      ru_text = ' '.join(get_text(ru_tokens, decode_ru)) # todo: model.decoder_tokenizer.decode(ru_tokens) for BERT2GPT
+      ru_text = ' '.join(get_text(ru_tokens))
       outs.append(ru_text)
     return outs
-
-# ru
-# http://wikipedia2vec.s3.amazonaws.com/models/ru/2018-04-20/ruwiki_20180420_300d.txt.bz2

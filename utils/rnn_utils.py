@@ -88,3 +88,16 @@ def prepare_iterators(train_data, valid_data, test_data, BATCH_SIZE, device):
 def labels_from_target(trg):
   trg = trg[1:].view(-1)
   return trg
+
+
+def get_text(x, id_to_word):
+  text = [id_to_word(token) for token in x]
+  try:
+    end_idx = text.index(EOS_TOKEN)
+    text = text[:end_idx]
+  except ValueError:
+    pass
+  text = remove_tech_tokens(text)
+  if len(text) < 1:
+    text = []
+  return text

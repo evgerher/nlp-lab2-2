@@ -6,7 +6,7 @@ from nltk.translate.bleu_score import corpus_bleu
 from tqdm import tqdm, trange
 import logging
 
-from utils.data import get_text, translate, SAMPLES
+from utils.data import translate, SAMPLES
 
 CLIP = 1
 logger = logging.getLogger('runner')
@@ -76,7 +76,7 @@ def train_epochs(model,
                  epochs,
                  writer: SummaryWriter,
                  encode_en,
-                 token_to_word_ru,
+                 get_text,
                  labels_from_target):
   logger.info('Start training')
   best_loss = float('inf')
@@ -86,7 +86,7 @@ def train_epochs(model,
     train_epoch_loss = train_epoch(model, iterator_train, optimizer, criterion, labels_from_target) # todo: bert2gpt - tokens repeat - think b' past_key_values!
     val_epoch_loss = evaluate_epoch(model, iterator_val, criterion, labels_from_target)
 
-    translated_samples = translate(model, SAMPLES, encode_en, token_to_word_ru)
+    translated_samples = translate(model, SAMPLES, encode_en, get_text)
 
     train_losses.append(train_epoch_loss)
     val_losses.append(val_epoch_loss)
@@ -113,7 +113,7 @@ def train_epochs(model,
   logger.info('Finish training')
   return train_losses, val_losses
 
-def bleu_score(model, iterator_test, token_to_word):
+def bleu_score(model, iterator_test, get_text):
   logger.info('Start BLEU scoring')
   original_text = []
   generated_text = []
@@ -130,8 +130,8 @@ def bleu_score(model, iterator_test, token_to_word):
 
       output = output.argmax(dim=-1)
 
-      original_text.extend([get_text(x, token_to_word) for x in trg.cpu().numpy().T])
-      generated_text.extend([get_text(x, token_to_word) for x in output[1:].detach().cpu().numpy().T])
+      original_text.extend([get_text(x) for x in trg.cpu().numpy().T])
+      generated_text.extend([get_text(x) for x in output[1:].detach().cpu().numpy().T])
   logger.info('Finished BLEU scoring')
   score = corpus_bleu([[text] for text in original_text], generated_text) * 100
   logger.info('BLEU score: %.2f', score)

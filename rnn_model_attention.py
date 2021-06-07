@@ -222,6 +222,7 @@ if __name__ == '__main__':
                                                                                   device,
                                                                                   pad_idx,
                                                                                   prepare_iterators)
+  convert_text = lambda x: get_text(x, lambda token: RU_field.vocab.itos[token])
   train_epochs(
     seq2seq,
     train_iterator,
@@ -231,9 +232,9 @@ if __name__ == '__main__':
     train_params['epochs'],
     writer,
     lambda x, device: EN_field.process(x, device),
-    lambda token: RU_field.vocab.itos[token],
+    convert_text,
     labels_from_target
   )
 
-  score = bleu_score(seq2seq, test_iterator, lambda token: RU_field.vocab.itos[token])
+  score = bleu_score(seq2seq, test_iterator, convert_text)
 
