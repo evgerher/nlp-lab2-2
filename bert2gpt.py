@@ -176,11 +176,10 @@ def init_arguments():
 
   # dec_tokenizer = create_tokenizer_ru(['data.txt.ru'])
   dec_tokenizer = AutoTokenizer.from_pretrained("DeepPavlov/rubert-base-cased")
-  dec_tokenizer.add_special_tokens({'bos_token': BOS_TOKEN, 'eos_token': EOS_TOKEN})
   decoder_setup = {
     'n_ctx': 768,
     'n_embd': 768, # self.head_dim * self.num_heads != self.embed_dim
-    'n_layer': 8,
+    'n_layer': 4,
     'n_head': 8,
     'bos_token_id': dec_tokenizer.bos_token_id,
     'eos_token_id': dec_tokenizer.eos_token_id,
@@ -192,9 +191,9 @@ def init_arguments():
   dec_model = GPT2LMHeadModel(decoder_config)
 
   train_params = {
-    'lr': 0.001,
+    'lr': 1e-4,
     'epochs': 15,
-    'batch_size': 16
+    'batch_size': 8
   }
 
   return (enc_tokenizer, enc_model), (dec_tokenizer, dec_model), train_params
