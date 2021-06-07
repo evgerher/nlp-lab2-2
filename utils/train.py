@@ -60,7 +60,11 @@ def evaluate_epoch(model, iterator, criterion, labels_from_target):
       src = batch.en
       trg = batch.ru
 
-      output = model(src, trg, 0)  # turn off teacher forcing
+      if 'cnn' in model.name.lower():
+        tt = trg[:-1]
+      else:
+        tt = trg
+      output = model(src, tt)
       # trg = [trg sent len, batch size]
       # output = [trg sent len, batch size, output dim]
       output = output.view(-1, output.shape[-1])
