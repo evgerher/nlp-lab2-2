@@ -82,7 +82,7 @@ def prepare_iterators(train_data, valid_data, test_data, BATCH_SIZE, device, col
   return train_iterator, valid_iterator, test_iterator
 
 def labels_from_target(trg):
-  trg = trg[:, 1:].contiguous().view(-1)
+  trg = trg[1:].contiguous().view(-1)
   return trg
 
 def get_text(x, tokenizer):
