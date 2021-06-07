@@ -1,6 +1,7 @@
 import random
 import json
 
+import numpy as np
 from torch import nn
 from torch.utils.tensorboard import SummaryWriter
 
@@ -52,9 +53,11 @@ class BERT2GPT(nn.Module):
     trg['encoder_attention_mask'] = src['attention_mask']
 
     idx = 0
+    mask = torch.zeros_like(trg['attention_mask'])
+    mask[:, idx] = 1
     new_trg = {
       'input_ids': trg['input_ids'][:, [idx]], # [batch, seq_len]
-      'attention_mask': trg['attention_mask'][:, [idx]],
+      'attention_mask': mask, # trg['attention_mask'][:, [idx]]
       'past_key_values': None,
       'use_cache': True,
       'encoder_attention_mask': src['attention_mask'],
@@ -73,7 +76,8 @@ class BERT2GPT(nn.Module):
         new_trg['input_ids'] = trg['input_ids'][:, [idx]]
       else:
         new_trg['input_ids'] = top1.unsqueeze(1)
-      new_trg['attention_mask'] = trg['attention_mask'][:, [idx]]
+      # new_trg['attention_mask'] = trg['attention_mask'][:, [idx]]
+      new_trg['attention_mask'][:, idx] = (trg['attention_mask'][:, idx] & 1)
       # new_trg['past_key_values'] = decoder_out['past_key_values']
 
     return outputs # todo: softmax here?
