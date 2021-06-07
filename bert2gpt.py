@@ -77,7 +77,7 @@ class BERT2GPT(nn.Module):
       else:
         new_trg['input_ids'] = top1.unsqueeze(1)
       # new_trg['attention_mask'] = trg['attention_mask'][:, [idx]]
-      new_trg['attention_mask'][:, idx] = (trg['attention_mask'][:, idx] & 1)
+      new_trg['attention_mask'][:, idx] = trg['attention_mask'][:, idx]
       # new_trg['past_key_values'] = decoder_out['past_key_values']
 
     return outputs # todo: softmax here?
@@ -216,7 +216,7 @@ if __name__ == '__main__':
   datasets = TranslationDataset.from_file('data.txt', '\t').split([0.8, 0.15, 0.05])
   seq2seq, device = build_seq2seq((enc_tokenizer, enc_model), (dec_tokenizer, dec_model), model_name)
 
-  pad_idx = -100 # gpt2 does not use pad
+  pad_idx = dec_tokenizer.pad_token_id
   closured_collate = build_collator(enc_tokenizer, dec_tokenizer, device)
   optimizer, criterion, (train_iterator, valid_iterator, test_iterator) = prepare(train_params,
                                                                                   seq2seq,
