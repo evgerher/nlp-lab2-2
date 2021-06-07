@@ -1,6 +1,6 @@
 from torchtext.legacy.data import BucketIterator
 
-from data import *
+from utils.data import *
 
 
 def numericalize(self, arr, device=None):
