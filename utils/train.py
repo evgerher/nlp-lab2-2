@@ -83,7 +83,7 @@ def train_epochs(model,
   train_losses = []
   val_losses = []
   for epoch in trange(1, epochs + 1):
-    train_epoch_loss = train_epoch(model, iterator_train, optimizer, criterion, labels_from_target)
+    train_epoch_loss = train_epoch(model, iterator_train, optimizer, criterion, labels_from_target) # todo: bert2gpt - tokens repeat - think b' past_key_values!
     val_epoch_loss = evaluate_epoch(model, iterator_val, criterion, labels_from_target)
 
     translated_samples = translate(model, SAMPLES, encode_en, token_to_word_ru)
