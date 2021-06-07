@@ -159,18 +159,18 @@ def init_arguments():
     'max_length': 128,
     'input_size': 300,
     'kernel_size': 3,
-    'n_layers': 4,
+    'n_layers': 10,
     'hidden_size': 256,
     'dropout': 0.3
   }
 
   decoder_setup = {
     'hidden_size': 256,
-    'input_size': 128,
+    'input_size': 200,
     'bidirectional': False,
-    'dropout': 0.4,
+    'dropout': 0,
     'other_dropout': 0.3,
-    'layers': 2
+    'layers': 1
   }
 
   dec_emb_setup = {
