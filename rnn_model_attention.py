@@ -1,6 +1,5 @@
 import random
 
-import torch
 from torch.utils.tensorboard import SummaryWriter
 from torch import nn
 
@@ -162,7 +161,7 @@ def init_arguments():
   train_params = {
     'lr': 0.001,
     'epochs': 45,
-    'batch_size': 256
+    'batch_size': 128
   }
 
   return encoder_setup, decoder_setup, dec_emb_setup, train_params

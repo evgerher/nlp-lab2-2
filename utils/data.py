@@ -5,7 +5,6 @@ import torch
 import torchtext
 from torchtext.legacy.data import Field, TabularDataset, Example
 from nltk.tokenize import WordPunctTokenizer
-import datasets
 
 logger = logging.getLogger('runner')
 tokenizer = WordPunctTokenizer()
@@ -79,6 +78,7 @@ class TabularDataset_From_List(torchtext.legacy.data.Dataset):
 
 
 def load_dataset_opus(EN_field, RU_field):
+  import datasets
   fname = 'saved_dataset'
   if not os.path.exists(fname):
     dataset = datasets.load_dataset("opus100", "en-ru")
