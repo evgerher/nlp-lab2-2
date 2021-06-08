@@ -177,7 +177,6 @@ class CNN2CNN(nn.Module):
     encoder_conved, encoder_combined = self.encoder(src)
     output, attention = self.decoder(trg, encoder_conved, encoder_combined)
     return output
-    # return output, attention
 
   def translate(self, en_tokens, max_len=50):
     en_tokens = en_tokens.T

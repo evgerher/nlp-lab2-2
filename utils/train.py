@@ -31,14 +31,14 @@ def train_epoch(model, iterator, optimizer, criterion, labels_from_target):
 
     optimizer.zero_grad()
     if 'cnn' in model.name.lower():
-      tt = trg[:-1]
+      tt = trg[:-1] # [seq_len - 1, batch_size]
     else:
       tt = trg
     output = model(src, tt)
 
     # trg = [trg sent len, batch size]
     # output = [trg sent len, batch size, output dim]
-    output = output.view(-1, output.shape[-1])
+    output = output.contiguous().view(-1, output.shape[-1])
     expected_labels = labels_from_target(trg)
 
     # trg = [(trg sent len - 1) * batch size]
@@ -135,7 +135,12 @@ def bleu_score(model, iterator_test, get_text):
       src = batch.en
       trg = batch.ru
 
-      output = model(src, trg, 0)  # turn off teacher forcing
+      if 'cnn' in model.name.lower():
+        tt = trg[:-1]
+      else:
+        tt = trg
+
+      output = model(src, tt, 0)  # turn off teacher forcing
 
       # trg = [trg sent len, batch size]
       # output = [trg sent len, batch size, output dim]
