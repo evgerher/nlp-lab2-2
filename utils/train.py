@@ -7,7 +7,7 @@ import logging
 
 from utils.data import translate, SAMPLES
 
-CLIP = 1
+CLIP = 0.1
 logger = logging.getLogger('runner')
 
 def prepare(train_params, model, dataset, device, pad_idx, prepare_iterators, **kwargs):

@@ -223,24 +223,29 @@ class CNN2CNN(nn.Module):
 def init_arguments():
   encoder_setup = {
     'max_length': 128,
-    'input_size': 300,
+    'input_size': 256,
     'kernel_size': 3,
     'n_layers': 10,
-    'hidden_size': 256,
-    'dropout': 0.3
+    'hidden_size': 512,
+    'dropout': 0.25
   }
 
   decoder_setup = {
     'max_length': 128,
-    'input_size': 300,
+    'input_size': 256,
     'kernel_size': 3,
     'n_layers': 10,
-    'hidden_size': 256,
-    'dropout': 0.3
+    'hidden_size': 512,
+    'dropout': 0.25
+  }
+
+  enc_emb_setup = {
+    'embedding_size': 256,
+    'max_length': 128
   }
 
   dec_emb_setup = {
-    'embedding_size': 300,
+    'embedding_size': 256,
     'max_length': 128
   }
 
@@ -253,20 +258,21 @@ def init_arguments():
   return encoder_setup, decoder_setup, dec_emb_setup, train_params
 
 
-def init_embeds(encoder_setup, decoder_setup, dec_emb_setup, train_params):
+def init_embeds(encoder_setup, decoder_setup, enc_emb_setup, dec_emb_setup, train_params):
   train_data, valid_data, test_data = load_dataset_local(EN_field, RU_field, 'data.txt')
-  en_vocab = build_vocab_en(EN_field, train_data)
+  en_vocab = build_vocab(EN_field, train_data)
   ru_vocab = build_vocab(RU_field, train_data)
 
 
-  weights = EN_field.vocab.vectors
-  mask = (weights[:, 0] == 0.0)
-  mean, std = weights[~mask].mean(), weights[~mask].std()
-  weights[mask] = torch.normal(mean, std, weights[mask].size())
+  # weights = EN_field.vocab.vectors
+  # mask = (weights[:, 0] == 0.0)
+  # mean, std = weights[~mask].mean(), weights[~mask].std()
+  # weights[mask] = torch.normal(mean, std, weights[mask].size())
 
-  n_tokens = len(ru_vocab.stoi)
-  encoder_embedding = nn.Embedding.from_pretrained(weights, freeze=False, padding_idx=en_vocab.stoi[PAD_TOKEN])
-  decoder_embedding = nn.Embedding(n_tokens, dec_emb_setup['embedding_size'], padding_idx=ru_vocab.stoi[PAD_TOKEN])
+  en_tokens = len(en_vocab.stoi)
+  ru_tokens = len(ru_vocab.stoi)
+  encoder_embedding = nn.Embedding(en_tokens, enc_emb_setup['embedding_size'], padding_idx=en_vocab.stoi[PAD_TOKEN])
+  decoder_embedding = nn.Embedding(ru_tokens, dec_emb_setup['embedding_size'], padding_idx=ru_vocab.stoi[PAD_TOKEN])
 
   dataset = (train_data, valid_data, test_data)
   embeds = (encoder_embedding, decoder_embedding)
@@ -319,7 +325,7 @@ if __name__ == '__main__':
   logger.info(f'Model {model_name}')
   writer = SummaryWriter('exp_CNN2CNN')
   encoder_setup, decoder_setup, dec_emb_setup, train_params = init_arguments()
-  train_params, setups, vocabs, embeds, datasets = init_embeds(encoder_setup, decoder_setup, dec_emb_setup, train_params)
+  train_params, setups, vocabs, embeds, datasets = init_embeds(encoder_setup, decoder_setup, enc_emb_setup, dec_emb_setup, train_params)
   (en_vocab, ru_vocab) = vocabs
   pad_idx = ru_vocab.stoi[PAD_TOKEN]
   seq2seq, device = build_seq2seq(setups, embeds, model_name, pad_idx, en_vocab, ru_vocab)
