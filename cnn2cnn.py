@@ -255,7 +255,7 @@ def init_arguments():
     'batch_size': 128
   }
 
-  return encoder_setup, decoder_setup, dec_emb_setup, train_params
+  return encoder_setup, decoder_setup, enc_emb_setup, dec_emb_setup, train_params
 
 
 def init_embeds(encoder_setup, decoder_setup, enc_emb_setup, dec_emb_setup, train_params):
@@ -324,7 +324,7 @@ if __name__ == '__main__':
   model_name = 'CNN2CNN'
   logger.info(f'Model {model_name}')
   writer = SummaryWriter('exp_CNN2CNN')
-  encoder_setup, decoder_setup, dec_emb_setup, train_params = init_arguments()
+  encoder_setup, decoder_setup, enc_emb_setup, dec_emb_setup, train_params = init_arguments()
   train_params, setups, vocabs, embeds, datasets = init_embeds(encoder_setup, decoder_setup, enc_emb_setup, dec_emb_setup, train_params)
   (en_vocab, ru_vocab) = vocabs
   pad_idx = ru_vocab.stoi[PAD_TOKEN]
