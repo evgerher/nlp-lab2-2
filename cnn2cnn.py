@@ -304,6 +304,7 @@ def bleu_score(model, iterator_test, get_text):
       output = output.detach().cpu().numpy()
       original = [get_text(x) for x in trg]
       generated = [get_text(x) for x in output]
+      generated = [gen[:len(original[i])] for i, gen in enumerate(generated)]
       original_text.extend(original)
       generated_text.extend(generated)
   score = corpus_bleu([[text] for text in original_text], generated_text) * 100

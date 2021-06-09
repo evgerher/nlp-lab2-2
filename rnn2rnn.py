@@ -223,9 +223,6 @@ def bleu_score(model, iterator_test, get_text):
       # output = [trg sent len, batch size, output dim]
 
       output = output.argmax(dim=-1)
-      if 'cnn' in model.name.lower():
-        output = output.T
-
       original = [get_text(x) for x in trg.cpu().numpy().T]
       generated = [get_text(x) for x in output.detach().cpu().numpy().T]
       original_text.extend(original)
