@@ -8,6 +8,7 @@ from nltk.translate.bleu_score import corpus_bleu
 from utils.rnn_utils import *
 from utils.logger import setup_logger
 from utils.train import prepare, train_epochs
+from utils.cnn2rnn_utils import labels_from_target
 
 logger = logging.getLogger('runner')
 
