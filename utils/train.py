@@ -2,7 +2,6 @@ from torch.utils.tensorboard import SummaryWriter
 from torchtext.legacy.data import BucketIterator
 import torch
 from torch import optim, nn
-from nltk.translate.bleu_score import corpus_bleu
 from tqdm import tqdm, trange
 import logging
 
@@ -124,33 +123,3 @@ def train_epochs(model,
 
   logger.info('Finish training')
   return train_losses, val_losses
-
-def bleu_score(model, iterator_test, get_text):
-  logger.info('Start BLEU scoring')
-  original_text = []
-  generated_text = []
-  model.eval()
-  with torch.no_grad():
-    for i, batch in tqdm(enumerate(iterator_test)):
-      src = batch.en
-      trg = batch.ru
-
-      if 'cnn' in model.name.lower():
-        tt = trg[:-1]
-      else:
-        tt = trg
-
-      output = model(src, tt, 0)  # turn off teacher forcing
-
-      # trg = [trg sent len, batch size]
-      # output = [trg sent len, batch size, output dim]
-
-      output = output.argmax(dim=-1)
-
-      original_text.extend([get_text(x) for x in trg.cpu().numpy().T])
-      generated_text.extend([get_text(x) for x in output[1:].detach().cpu().numpy().T])
-  logger.info('Finished BLEU scoring')
-  score = corpus_bleu([[text] for text in original_text], generated_text) * 100
-  logger.info('BLEU score: %.2f', score)
-
-  return score

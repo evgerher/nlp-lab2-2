@@ -1,12 +1,14 @@
 import random
 
+from datasets import tqdm
 from torch.utils.tensorboard import SummaryWriter
 from torch import nn
+from nltk.translate.bleu_score import corpus_bleu
 
 from utils.attention import LuongAttention
 from utils.rnn_utils import *
 from utils.logger import setup_logger
-from utils.train import prepare, train_epochs, bleu_score
+from utils.train import prepare, train_epochs
 
 logger = logging.getLogger('runner')
 
@@ -203,6 +205,37 @@ def build_seq2seq(setups, embeds, attention, model_name):
   seq2seq = RNN2RNN('GRU', 'GRU', encoder_setup, decoder_setup, en_embed, ru_embed, attention, device, model_name).to(device)
   logger.info('Initialized model')
   return seq2seq, device
+
+
+def bleu_score(model, iterator_test, get_text):
+  logger.info('Start BLEU scoring')
+  original_text = []
+  generated_text = []
+  model.eval()
+  with torch.no_grad():
+    for i, batch in tqdm(enumerate(iterator_test)):
+      src = batch.en
+      trg = batch.ru
+
+      output = model(src, trg, 0)  # turn off teacher forcing
+
+      # trg = [trg sent len, batch size]
+      # output = [trg sent len, batch size, output dim]
+
+      output = output.argmax(dim=-1)
+      if 'cnn' in model.name.lower():
+        output = output.T
+
+      original = [get_text(x) for x in trg.cpu().numpy().T]
+      generated = [get_text(x) for x in output.detach().cpu().numpy().T]
+      original_text.extend(original)
+      generated_text.extend(generated)
+  score = corpus_bleu([[text] for text in original_text], generated_text) * 100
+  logger.info('Finished BLEU scoring')
+  logger.info('BLEU score: %.2f', score)
+
+  return score
+
 
 if __name__ == '__main__':
   setup_logger()

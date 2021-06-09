@@ -1,14 +1,13 @@
-import random
+from tqdm import tqdm
 
 from torch.utils.tensorboard import SummaryWriter
 from torch import nn
 import torch.nn.functional as F
+from nltk.translate.bleu_score import corpus_bleu
 
-from utils.attention import LuongAttention
 from utils.rnn_utils import *
 from utils.logger import setup_logger
-from utils.train import prepare, train_epochs, bleu_score
-from utils.cnn2rnn_utils import labels_from_target
+from utils.train import prepare
 
 logger = logging.getLogger('runner')
 
@@ -180,19 +179,30 @@ class CNN2CNN(nn.Module):
 
   def translate(self, en_tokens, max_len=50):
     en_tokens = en_tokens.T
+    batch_size = en_tokens.shape[0]
     encoder_conved, encoder_combined = self.encoder(en_tokens)
 
-    trg_indexes = [self.ru_vocab.stoi[BOS_TOKEN]]
+    trg_indexes = torch.tensor([[self.ru_vocab.stoi[BOS_TOKEN]] * batch_size], dtype=torch.long, device=device).T
     for i in range(max_len):
-      trg_tensor = torch.LongTensor(trg_indexes).unsqueeze(0).to(device)
       with torch.no_grad():
-        output, attention = self.decoder(trg_tensor, encoder_conved, encoder_combined)
-      pred_token = output.argmax(2)[:, -1].item()
-      trg_indexes.append(pred_token)
-      if pred_token == self.ru_vocab.stoi[EOS_TOKEN]:
-        break
-    trg_tokens = [self.ru_vocab.itos[i] for i in trg_indexes]
-    return trg_tokens[1:]
+        output, attention = self.decoder(trg_indexes, encoder_conved, encoder_combined)
+      pred_token = output.argmax(2)[:, [-1]]
+      trg_indexes = torch.hstack([trg_indexes, pred_token])
+      # if pred_token == self.ru_vocab.stoi[EOS_TOKEN]:
+      #   break
+    return trg_indexes[:, 1:]
+
+    # EOS_TOKEN_ID = self.ru_vocab.stoi[EOS_TOKEN]
+    # trg_tokens = []
+    # for row in trg_indexes:
+    #   words = []
+    #   for token in row:
+    #     if token == EOS_TOKEN_ID:
+    #       break
+    #     word = self.ru_vocab.itos[token]
+    #     words.append(word)
+    #   trg_tokens.append(words)
+    # return trg_tokens
 
     # ru_tokens = []
     # conved, combined = self.encoder(en_tokens)
@@ -276,6 +286,31 @@ def build_seq2seq(setups, embeds, model_name, dec_pad_idx, en_vocab, ru_vocab):
   logger.info('Initialized model')
   return seq2seq, device
 
+
+def bleu_score(model, iterator_test, get_text):
+  logger.info('Start BLEU scoring')
+  original_text = []
+  generated_text = []
+  model.eval()
+  BOS_TOKEN_ID = model.ru_vocab.stoi[EOS_TOKEN]
+  with torch.no_grad():
+    for i, batch in tqdm(enumerate(iterator_test)):
+      src = batch.en
+      trg = batch.ru
+
+      output = model.translate(src, max(50, trg.shape[0]))
+      trg = trg.cpu().numpy().T
+      output = output.detach().cpu().numpy()
+      original = [get_text(x) for x in trg]
+      generated = [get_text(x) for x in output]
+      original_text.extend(original)
+      generated_text.extend(generated)
+  score = corpus_bleu([[text] for text in original_text], generated_text) * 100
+  logger.info('Finished BLEU scoring')
+  logger.info('BLEU score: %.2f', score)
+
+  return score
+
 if __name__ == '__main__':
   setup_logger()
   model_name = 'CNN2CNN'
@@ -293,19 +328,19 @@ if __name__ == '__main__':
                                                                                   device,
                                                                                   pad_idx,
                                                                                   prepare_iterators)
-  convert_text = lambda x: x
-  train_epochs(
-    seq2seq,
-    train_iterator,
-    valid_iterator,
-    optimizer,
-    scheduler,
-    criterion,
-    train_params['epochs'],
-    writer,
-    lambda x, device: EN_field.process(x, device),
-    convert_text,
-    labels_from_target
-  )
+  convert_text = lambda x: get_text(x, lambda y: ru_vocab.itos[y])
+  # train_epochs(
+  #   seq2seq,
+  #   train_iterator,
+  #   valid_iterator,
+  #   optimizer,
+  #   scheduler,
+  #   criterion,
+  #   train_params['epochs'],
+  #   writer,
+  #   lambda x, device: EN_field.process(x, device),
+  #   convert_text,
+  #   labels_from_target
+  # )
 
   score = bleu_score(seq2seq, test_iterator, convert_text)
