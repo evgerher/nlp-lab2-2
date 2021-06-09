@@ -7,7 +7,7 @@ from nltk.translate.bleu_score import corpus_bleu
 
 from utils.rnn_utils import *
 from utils.logger import setup_logger
-from utils.train import prepare
+from utils.train import prepare, train_epochs
 
 logger = logging.getLogger('runner')
 
@@ -329,18 +329,18 @@ if __name__ == '__main__':
                                                                                   pad_idx,
                                                                                   prepare_iterators)
   convert_text = lambda x: get_text(x, lambda y: ru_vocab.itos[y])
-  # train_epochs(
-  #   seq2seq,
-  #   train_iterator,
-  #   valid_iterator,
-  #   optimizer,
-  #   scheduler,
-  #   criterion,
-  #   train_params['epochs'],
-  #   writer,
-  #   lambda x, device: EN_field.process(x, device),
-  #   convert_text,
-  #   labels_from_target
-  # )
+  train_epochs(
+    seq2seq,
+    train_iterator,
+    valid_iterator,
+    optimizer,
+    scheduler,
+    criterion,
+    train_params['epochs'],
+    writer,
+    lambda x, device: EN_field.process(x, device),
+    convert_text,
+    labels_from_target
+  )
 
   score = bleu_score(seq2seq, test_iterator, convert_text)
