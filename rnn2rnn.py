@@ -139,30 +139,30 @@ class RNN2RNN(nn.Module):
 
 def init_arguments():
   encoder_setup = {
-    'hidden_size': 256,
-    'input_size': 300,
+    'hidden_size': 512,
+    'input_size': 256,
     'bidirectional': True,
-    'dropout': 0.4,
+    'dropout': 0.25,
     'layers': 2
   }
 
   decoder_setup = {
     'hidden_size': 256,
-    'input_size': 300,
+    'input_size': 512,
     'bidirectional': False,
-    'dropout': 0.4,
-    'other_dropout': 0.3,
+    'dropout': 0.25,
+    'other_dropout': 0.25,
     'layers': 2
   }
 
   dec_emb_setup = {
-    'embedding_size': 200,
+    'embedding_size': 256,
     'max_length': 128
   }
 
   train_params = {
-    'lr': 5e-4,
-    'epochs': 30,
+    'lr': 1e-3,
+    'epochs': 20,
     'batch_size': 128
   }
 
@@ -179,13 +179,14 @@ def init_embeds(encoder_setup, decoder_setup, dec_emb_setup, train_params):
 
 
 
-  weights = EN_field.vocab.vectors
-  mask = (weights[:, 0] == 0.0)
-  mean, std = weights[~mask].mean(), weights[~mask].std()
-  weights[mask] = torch.normal(mean, std, weights[mask].size())
+  # weights = EN_field.vocab.vectors
+  # mask = (weights[:, 0] == 0.0)
+  # mean, std = weights[~mask].mean(), weights[~mask].std()
+  # weights[mask] = torch.normal(mean, std, weights[mask].size())
 
   n_tokens = len(ru_vocab.stoi)
-  encoder_embedding = nn.Embedding.from_pretrained(weights, freeze=False, padding_idx=en_vocab.stoi[PAD_TOKEN])
+  # encoder_embedding = nn.Embedding.from_pretrained(weights, freeze=False, padding_idx=en_vocab.stoi[PAD_TOKEN])
+  encoder_embedding = nn.Embedding(len(en_vocab.stoi), encoder_setup['input_size'], padding_idx=en_vocab.stoi[PAD_TOKEN])
   decoder_embedding = nn.Embedding(n_tokens, dec_emb_setup['embedding_size'], padding_idx=ru_vocab.stoi[PAD_TOKEN])
 
   attention = LuongAttention(decoder_setup['hidden_size'], encoder_setup['bidirectional'], n_tokens)
@@ -267,4 +268,3 @@ if __name__ == '__main__':
   )
 
   score = bleu_score(seq2seq, test_iterator, convert_text)
-
