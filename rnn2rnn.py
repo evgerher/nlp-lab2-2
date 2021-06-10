@@ -9,6 +9,7 @@ from utils.attention import LuongAttention
 from utils.rnn_utils import *
 from utils.logger import setup_logger
 from utils.train import prepare, train_epochs
+import torch
 
 logger = logging.getLogger('runner')
 
@@ -147,8 +148,8 @@ def init_arguments():
   }
 
   decoder_setup = {
-    'hidden_size': 256,
-    'input_size': 512,
+    'hidden_size': 512,
+    'input_size': 256,
     'bidirectional': False,
     'dropout': 0.25,
     'other_dropout': 0.25,
