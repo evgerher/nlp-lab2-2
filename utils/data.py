@@ -143,7 +143,9 @@ def translate(model, sentences: List[str], encode_en, get_text, max_len=50):
     model.eval()
     for sentence in sentences:
       en_tokens = encode_en([sentence], model.device)
-      ru_tokens = model.translate(en_tokens, max_len=max_len).squeeze(0).detach().cpu().numpy()
+      ru_tokens = model.translate(en_tokens, max_len=max_len)
+      if not isinstance(ru_tokens, list):
+        ru_tokens = ru_tokens.squeeze(0).detach().cpu().numpy()
       ru_text = ' '.join(get_text(ru_tokens))
       outs.append(ru_text)
     return outs
