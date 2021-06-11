@@ -70,7 +70,9 @@ class RNN_ModelDecoder(nn.Module):
     output, hidden = self.rnn(embeds, hidden)
     attn_weights = None
     if self.attention:
-      output, attn_weights = self.attention(output, hidden, encoder_outputs)
+      output, attn_weights = self.attention(output, hidden, encoder_outputs) # output: [batch_size, hidden_size]
+    else:
+      output = output.squeeze(0)
     output = self.out(output)
     return output, hidden, attn_weights
 
