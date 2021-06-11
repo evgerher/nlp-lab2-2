@@ -14,7 +14,7 @@ from tokenizers.processors import TemplateProcessing
 from transformers import BertTokenizer, BertModel, GPT2Config, GPT2TokenizerFast, AutoTokenizer, GPT2LMHeadModel
 from utils.bert2gpt_utils import *
 from utils.logger import setup_logger
-from utils.train import prepare, train_epochs, bleu_score
+from utils.train import prepare, train_epochs
 
 logger = logging.getLogger('runner')
 
