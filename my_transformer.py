@@ -111,20 +111,20 @@ if __name__ == '__main__':
                                                                                              pad_idx,
                                                                                              prepare_iterators)
   convert_text = lambda x: get_text(x, lambda token: RU_field.vocab.itos[token])
-  # train_epochs(
-  #   seq2seq,
-  #   train_iterator,
-  #   valid_iterator,
-  #   optimizer,
-  #   scheduler,
-  #   criterion,
-  #   train_params['epochs'],
-  #   writer,
-  #   lambda x, device: EN_field.tokenize(x[0].lower()),
-  #   convert_text,
-  #   labels_from_target
-  # )
-  #
-  # best_state = torch.load(f"{model_name}_best.pt", mapping=device)
-  # seq2seq.load_state_dict(best_state, strict=False)
+  train_epochs(
+    seq2seq,
+    train_iterator,
+    valid_iterator,
+    optimizer,
+    scheduler,
+    criterion,
+    train_params['epochs'],
+    writer,
+    lambda x, device: EN_field.tokenize(x[0].lower()),
+    convert_text,
+    labels_from_target
+  )
+
+  best_state = torch.load(f"{model_name}_best.pt", mapping=device)
+  seq2seq.load_state_dict(best_state, strict=False)
   score = bleu_score(seq2seq, test_iterator, convert_text)
