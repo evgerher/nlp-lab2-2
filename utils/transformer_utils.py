@@ -294,9 +294,13 @@ class Seq2Seq(nn.Module):
     self.trg_pad_idx = trg_pad_idx
     self.device = device
 
-  def translate(self, en_tokens, max_len: int):
-    en_tokens = [EN_field.vocab.stoi[BOS_TOKEN]] + [EN_field.vocab.stoi[x] for x in en_tokens] + [EN_field.vocab.stoi[EOS_TOKEN]]
-    en_tokens = torch.tensor([en_tokens], dtype=torch.long, device=self.device)
+  def translate(self, en_tokens, max_len: int, add_fields=True, convert_tokens=True, tensorize=True):
+    if convert_tokens:
+      en_tokens = [EN_field.vocab.stoi[x] for x in en_tokens]
+    if add_fields:
+      en_tokens = [EN_field.vocab.stoi[BOS_TOKEN]] + en_tokens + [EN_field.vocab.stoi[EOS_TOKEN]]
+    if tensorize:
+      en_tokens = torch.tensor([en_tokens], dtype=torch.long, device=self.device)
     src_mask = self.make_src_mask(en_tokens)
     enc_src = self.encoder(en_tokens, src_mask)
 

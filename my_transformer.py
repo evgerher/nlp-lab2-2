@@ -70,16 +70,17 @@ def bleu_score(model, iterator_test, get_text):
       src = batch.en
       trg = batch.ru
 
-      output = model(src, trg, 0)  # turn off teacher forcing
+      max_len = trg.shape[1]
 
-      # trg = [trg sent len, batch size]
-      # output = [trg sent len, batch size, output dim]
 
-      output = output.argmax(dim=-1)
-      original = [get_text(x) for x in trg.cpu().numpy().T]
-      generated = [get_text(x) for x in output.detach().cpu().numpy().T]
-      original_text.extend(original)
-      generated_text.extend(generated)
+      for en_tokens, ru_tokens_expected in zip(src, trg):
+        ru_tokens = model.translate(en_tokens.unsqueeze(0), max_len + 10, add_fields=False, tensorize=False, convert_tokens=False)
+
+        original = get_text(ru_tokens_expected)
+        generated = get_text(ru_tokens)
+
+        original_text.extend(original)
+        generated_text.extend(generated)
   score = corpus_bleu([[text] for text in original_text], generated_text) * 100
   logger.info('Finished BLEU scoring')
   logger.info('BLEU score: %.2f', score)
@@ -110,18 +111,18 @@ if __name__ == '__main__':
                                                                                              pad_idx,
                                                                                              prepare_iterators)
   convert_text = lambda x: get_text(x, lambda token: RU_field.vocab.itos[token])
-  train_epochs(
-    seq2seq,
-    train_iterator,
-    valid_iterator,
-    optimizer,
-    scheduler,
-    criterion,
-    train_params['epochs'],
-    writer,
-    lambda x, device: EN_field.tokenize(x[0].lower()),
-    convert_text,
-    labels_from_target
-  )
+  # train_epochs(
+  #   seq2seq,
+  #   train_iterator,
+  #   valid_iterator,
+  #   optimizer,
+  #   scheduler,
+  #   criterion,
+  #   train_params['epochs'],
+  #   writer,
+  #   lambda x, device: EN_field.tokenize(x[0].lower()),
+  #   convert_text,
+  #   labels_from_target
+  # )
 
   score = bleu_score(seq2seq, test_iterator, convert_text)
