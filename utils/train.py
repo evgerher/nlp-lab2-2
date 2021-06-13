@@ -58,7 +58,7 @@ def evaluate_epoch(model, iterator, criterion, labels_from_target):
   epoch_loss = 0
   with torch.no_grad():
     for i, batch in enumerate(iterator):
-      src = batch.en.T
+      src = batch.en
       trg = batch.ru
 
       if 'cnn' in model.name.lower():

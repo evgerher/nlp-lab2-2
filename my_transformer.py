@@ -119,7 +119,7 @@ if __name__ == '__main__':
     criterion,
     train_params['epochs'],
     writer,
-    lambda x, device: EN_field.process(x, device),
+    lambda x, device: EN_field.tokenize(x[0].lower()),
     convert_text,
     labels_from_target
   )

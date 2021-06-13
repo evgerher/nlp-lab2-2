@@ -27,7 +27,7 @@ if __name__ == '__main__':
   encoder_setup, decoder_setup, dec_emb_setup, train_params = init_arguments()
   train_params, setups, vocabs, embeds, attention, datasets = init_embeds(encoder_setup, decoder_setup, dec_emb_setup, train_params)
   (en_vocab, ru_vocab) = vocabs
-  seq2seq, device = build_seq2seq(setups, embeds, attention, model_name)
+  seq2seq, device = build_seq2seq(setups, embeds, attention, model_name, en_vocab, ru_vocab)
 
   RU_SEQ_LEN = 50
   EN_SEQ_LEN = 45

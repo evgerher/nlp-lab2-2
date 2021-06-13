@@ -193,32 +193,6 @@ class CNN2CNN(nn.Module):
       #   break
     return trg_indexes[:, 1:]
 
-    # EOS_TOKEN_ID = self.ru_vocab.stoi[EOS_TOKEN]
-    # trg_tokens = []
-    # for row in trg_indexes:
-    #   words = []
-    #   for token in row:
-    #     if token == EOS_TOKEN_ID:
-    #       break
-    #     word = self.ru_vocab.itos[token]
-    #     words.append(word)
-    #   trg_tokens.append(words)
-    # return trg_tokens
-
-    # ru_tokens = []
-    # conved, combined = self.encoder(en_tokens)
-    # input = torch.tensor([RU_field.vocab.stoi[BOS_TOKEN]], dtype=torch.long, device=self.device)
-    # EOS_TOKEN_ID = RU_field.vocab.stoi[EOS_TOKEN]
-    # decoder_hidden = None
-    # for t in range(1, max_len):
-    #   output, decoder_hidden, _ = self.decoder(input, decoder_hidden, combined_new)
-    #   input = output.max(1)[1]
-    #   token = input.item()
-    #   ru_tokens.append(token)
-    #   if token == EOS_TOKEN_ID:
-    #     break
-    # return ru_tokens
-
 
 def init_arguments():
   encoder_setup = {

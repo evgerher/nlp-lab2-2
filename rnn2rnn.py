@@ -84,12 +84,16 @@ class RNN2RNN(nn.Module):
                decoder_setup: dict,
                encoder_embedding: nn.Embedding,
                decoder_embedding: nn.Embedding,
+               en_vocab,
+               ru_vocab,
                attention,
                device,
                model_name):
     super().__init__()
     self.encoder = RNN_ModelEncoder(encoder_cell, encoder_setup, encoder_embedding)
     self.decoder = RNN_ModelDecoder(decoder_cell, decoder_setup, decoder_embedding, attention)
+    self.ru_vocab = ru_vocab
+    self.en_vocab = en_vocab
     self.device = device
     self.name = model_name
 
@@ -125,6 +129,7 @@ class RNN2RNN(nn.Module):
     return outputs # todo: softmax here?
 
   def translate(self, en_tokens, max_len: int):
+    en_tokens = [self.en_vocab.stoi[BOS_TOKEN]] + en_tokens + [self.en_vocab.stoi[EOS_TOKEN]]
     ru_tokens = []
     encoder_output_states, encoder_hidden = self.encoder(en_tokens, None)
     input = torch.tensor([RU_field.vocab.stoi[BOS_TOKEN]], dtype=torch.long, device=self.device)
@@ -201,12 +206,12 @@ def init_embeds(encoder_setup, decoder_setup, dec_emb_setup, train_params):
   return train_params, setups, vocabs, embeds, attention, dataset
 
 
-def build_seq2seq(setups, embeds, attention, model_name):
+def build_seq2seq(setups, embeds, attention, model_name, en_vocab, ru_vocab):
   device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
   encoder_setup, decoder_setup = setups
 
   en_embed, ru_embed = embeds
-  seq2seq = RNN2RNN('GRU', 'GRU', encoder_setup, decoder_setup, en_embed, ru_embed, attention, device, model_name).to(device)
+  seq2seq = RNN2RNN('GRU', 'GRU', encoder_setup, decoder_setup, en_embed, ru_embed, en_vocab, ru_vocab, attention, device, model_name).to(device)
   logger.info('Initialized model')
   return seq2seq, device
 
@@ -249,7 +254,7 @@ if __name__ == '__main__':
   encoder_setup, decoder_setup, dec_emb_setup, train_params = init_arguments()
   train_params, setups, vocabs, embeds, attention, datasets = init_embeds(encoder_setup, decoder_setup, dec_emb_setup, train_params)
   (en_vocab, ru_vocab) = vocabs
-  seq2seq, device = build_seq2seq(setups, embeds, attention, model_name)
+  seq2seq, device = build_seq2seq(setups, embeds, attention, model_name, en_vocab, ru_vocab)
 
   RU_SEQ_LEN = 50
   EN_SEQ_LEN = 45
