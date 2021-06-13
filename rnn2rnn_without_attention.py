@@ -1,4 +1,6 @@
 from rnn2rnn import *
+from utils.train import compute_parameters_number
+
 
 def init_embeds(encoder_setup, decoder_setup, dec_emb_setup, train_params):
   train_data, valid_data, test_data = load_dataset_local(EN_field, RU_field, 'data.txt')
@@ -26,6 +28,12 @@ if __name__ == '__main__':
   train_params, setups, vocabs, embeds, attention, datasets = init_embeds(encoder_setup, decoder_setup, dec_emb_setup, train_params)
   (en_vocab, ru_vocab) = vocabs
   seq2seq, device = build_seq2seq(setups, embeds, attention, model_name)
+
+  RU_SEQ_LEN = 50
+  EN_SEQ_LEN = 45
+  BATCH_SIZE = 32
+  estimated_time = estimate_batch_time_simple(seq2seq, model_name, BATCH_SIZE, EN_SEQ_LEN, RU_SEQ_LEN, device, 100)
+  nparams = compute_parameters_number(seq2seq, model_name)
 
   pad_idx = ru_vocab.stoi[PAD_TOKEN]
   optimizer, scheduler, criterion, (train_iterator, valid_iterator, test_iterator) = prepare(train_params,

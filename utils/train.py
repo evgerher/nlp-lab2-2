@@ -1,5 +1,5 @@
 from torch.utils.tensorboard import SummaryWriter
-from torchtext.legacy.data import BucketIterator
+import time
 import torch
 from torch import optim, nn
 from tqdm import tqdm, trange
@@ -123,3 +123,34 @@ def train_epochs(model,
 
   logger.info('Finish training')
   return train_losses, val_losses
+
+
+def estimate_batch_time_simple(model,
+                        model_name: str,
+                        batch_size: int,
+                        seq_len_en: int,
+                        seq_len_ru: int,
+                        device,
+                        trials: int):
+  assert trials > 0
+  with torch.no_grad():
+    model.eval()
+    en = torch.zeros((seq_len_en, batch_size), dtype=torch.long, device=device)
+    ru = torch.zeros((seq_len_ru, batch_size), dtype=torch.long, device=device)
+    timer = 0
+
+    for _ in range(trials):
+      start = time.time()
+      _ = model(en, ru)
+      end = time.time()
+      timer += (end - start)
+    model.train()
+    avg_time = timer / trials
+    logger.info("Model %s computes sequence [batch_size: %d, en_seq_lenth: %d, ru_seq_length: %d] within %.5f seconds.",
+                model_name, batch_size, seq_len_en, seq_len_ru, avg_time)
+    return avg_time
+
+def compute_parameters_number(model, model_name: str):
+  nparams = sum(p.numel() for p in model.parameters())
+  logger.info('Model %s has [%d] parameters', model_name, nparams)
+  return nparams

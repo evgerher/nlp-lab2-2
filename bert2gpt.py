@@ -227,7 +227,7 @@ if __name__ == '__main__':
                                                                                   num_workers=0,
                                                                                   collate_fn=closured_collate)
   convert_text = lambda x: get_text(x, dec_tokenizer)
-  train_epochs( # todo: тренировка gpt2 - на каждом шаге менять attention mask
+  train_epochs(# todo: тренировка gpt2 - на каждом шаге менять attention mask?
     seq2seq,
     train_iterator,
     valid_iterator,

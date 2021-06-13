@@ -8,7 +8,7 @@ from nltk.translate.bleu_score import corpus_bleu
 from utils.attention import LuongAttention
 from utils.rnn_utils import *
 from utils.logger import setup_logger
-from utils.train import prepare, train_epochs
+from utils.train import prepare, train_epochs, estimate_batch_time_simple, compute_parameters_number
 import torch
 
 logger = logging.getLogger('runner')
@@ -243,10 +243,19 @@ if __name__ == '__main__':
   model_name = 'RNN2RNN'
   logger.info(f'Model {model_name}')
   writer = SummaryWriter('exp_RNN2RNN')
+
+
+
   encoder_setup, decoder_setup, dec_emb_setup, train_params = init_arguments()
   train_params, setups, vocabs, embeds, attention, datasets = init_embeds(encoder_setup, decoder_setup, dec_emb_setup, train_params)
   (en_vocab, ru_vocab) = vocabs
   seq2seq, device = build_seq2seq(setups, embeds, attention, model_name)
+
+  RU_SEQ_LEN = 50
+  EN_SEQ_LEN = 45
+  BATCH_SIZE = 32
+  estimated_time = estimate_batch_time_simple(seq2seq, model_name, BATCH_SIZE, EN_SEQ_LEN, RU_SEQ_LEN, device, 100)
+  nparams = compute_parameters_number(seq2seq, model_name)
 
   pad_idx = ru_vocab.stoi[PAD_TOKEN]
   optimizer, scheduler, criterion, (train_iterator, valid_iterator, test_iterator) = prepare(train_params,

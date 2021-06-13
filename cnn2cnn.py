@@ -7,7 +7,7 @@ from nltk.translate.bleu_score import corpus_bleu
 
 from utils.rnn_utils import *
 from utils.logger import setup_logger
-from utils.train import prepare, train_epochs
+from utils.train import prepare, train_epochs, estimate_batch_time_simple, compute_parameters_number
 from utils.cnn2rnn_utils import labels_from_target
 
 logger = logging.getLogger('runner')
@@ -320,6 +320,8 @@ def bleu_score(model, iterator_test, get_text):
   return score
 
 if __name__ == '__main__':
+
+
   setup_logger()
   model_name = 'CNN2CNN'
   logger.info(f'Model {model_name}')
@@ -329,6 +331,12 @@ if __name__ == '__main__':
   (en_vocab, ru_vocab) = vocabs
   pad_idx = ru_vocab.stoi[PAD_TOKEN]
   seq2seq, device = build_seq2seq(setups, embeds, model_name, pad_idx, en_vocab, ru_vocab)
+
+  RU_SEQ_LEN = 50
+  EN_SEQ_LEN = 45
+  BATCH_SIZE = 32
+  estimated_time = estimate_batch_time_simple(seq2seq, model_name, BATCH_SIZE, EN_SEQ_LEN, RU_SEQ_LEN, device, 100)
+  nparams = compute_parameters_number(seq2seq, model_name)
 
   optimizer, scheduler, criterion, (train_iterator, valid_iterator, test_iterator) = prepare(train_params,
                                                                                   seq2seq,
