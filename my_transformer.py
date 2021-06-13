@@ -100,8 +100,8 @@ if __name__ == '__main__':
   RU_SEQ_LEN = 50
   EN_SEQ_LEN = 45
   BATCH_SIZE = 32
-  # estimated_time = estimate_batch_time_simple(seq2seq, model_name, BATCH_SIZE, EN_SEQ_LEN, RU_SEQ_LEN, device, 100, True)
-  # nparams = compute_parameters_number(seq2seq, model_name)
+  estimated_time = estimate_batch_time_simple(seq2seq, model_name, BATCH_SIZE, EN_SEQ_LEN, RU_SEQ_LEN, device, 100, True)
+  nparams = compute_parameters_number(seq2seq, model_name)
 
   pad_idx = ru_vocab.stoi[PAD_TOKEN]
   optimizer, scheduler, criterion, (train_iterator, valid_iterator, test_iterator) = prepare(train_params,
@@ -111,18 +111,18 @@ if __name__ == '__main__':
                                                                                              pad_idx,
                                                                                              prepare_iterators)
   convert_text = lambda x: get_text(x, lambda token: RU_field.vocab.itos[token])
-  # train_epochs(
-  #   seq2seq,
-  #   train_iterator,
-  #   valid_iterator,
-  #   optimizer,
-  #   scheduler,
-  #   criterion,
-  #   train_params['epochs'],
-  #   writer,
-  #   lambda x, device: EN_field.tokenize(x[0].lower()),
-  #   convert_text,
-  #   labels_from_target
-  # )
+  train_epochs(
+    seq2seq,
+    train_iterator,
+    valid_iterator,
+    optimizer,
+    scheduler,
+    criterion,
+    train_params['epochs'],
+    writer,
+    lambda x, device: EN_field.tokenize(x[0].lower()),
+    convert_text,
+    labels_from_target
+  )
 
   score = bleu_score(seq2seq, test_iterator, convert_text)
