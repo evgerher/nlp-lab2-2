@@ -125,6 +125,6 @@ if __name__ == '__main__':
     labels_from_target
   )
 
-  best_state = torch.load(f"{model_name}_best.pt", mapping=device)
+  best_state = torch.load(f"{model_name}_best.pt", map_location=device)
   seq2seq.load_state_dict(best_state, strict=False)
   score = bleu_score(seq2seq, test_iterator, convert_text)
