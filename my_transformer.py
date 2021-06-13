@@ -13,7 +13,7 @@ def init_arguments(en_vocab, ru_vocab):
     'input_size': len(en_vocab),
     'hidden_size': 256,
     'nlayer': 3,
-    'dropout': 0.1,
+    'dropout': 0.15,
     'pf_size': 512,
     'nheads': 8,
   }
@@ -22,14 +22,14 @@ def init_arguments(en_vocab, ru_vocab):
     'output_size': len(ru_vocab),
     'hidden_size': 256,
     'nlayer': 3,
-    'dropout': 0.1,
+    'dropout': 0.15,
     'pf_size': 512,
     'nheads': 8,
   }
 
   train_params = {
-    'lr': 0.0005,
-    'epochs': 10,
+    'lr': 0.0003,
+    'epochs': 15,
     'batch_size': 128
   }
   
@@ -125,4 +125,6 @@ if __name__ == '__main__':
     labels_from_target
   )
 
+  best_state = torch.load(f"{model_name}_best.pt", mapping=device)
+  seq2seq.load_state_dict(best_state, strict=False)
   score = bleu_score(seq2seq, test_iterator, convert_text)
