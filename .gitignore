@@ -6,3 +6,6 @@
 *.log
 exp_*
 *.pt
+experiments/
+saved_dataset/
+.ipynb_checkpoints

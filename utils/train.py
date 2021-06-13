@@ -1,14 +1,13 @@
 from torch.utils.tensorboard import SummaryWriter
-from torchtext.legacy.data import BucketIterator
+import time
 import torch
 from torch import optim, nn
-from nltk.translate.bleu_score import corpus_bleu
 from tqdm import tqdm, trange
 import logging
 
 from utils.data import translate, SAMPLES
 
-CLIP = 1
+CLIP = 0.1
 logger = logging.getLogger('runner')
 
 def prepare(train_params, model, dataset, device, pad_idx, prepare_iterators, **kwargs):
@@ -30,11 +29,15 @@ def train_epoch(model, iterator, optimizer, criterion, labels_from_target):
     trg = batch.ru
 
     optimizer.zero_grad()
-    output = model(src, trg)
+    if 'cnn' in model.name.lower():
+      tt = trg[:-1] # [seq_len - 1, batch_size]
+    else:
+      tt = trg
+    output = model(src, tt)
 
     # trg = [trg sent len, batch size]
     # output = [trg sent len, batch size, output dim]
-    output = output.view(-1, output.shape[-1])
+    output = output.contiguous().view(-1, output.shape[-1])
     expected_labels = labels_from_target(trg)
 
     # trg = [(trg sent len - 1) * batch size]
@@ -56,7 +59,11 @@ def evaluate_epoch(model, iterator, criterion, labels_from_target):
       src = batch.en.T
       trg = batch.ru
 
-      output = model(src, trg, 0)  # turn off teacher forcing
+      if 'cnn' in model.name.lower():
+        tt = trg[:-1]
+      else:
+        tt = trg
+      output = model(src, tt)
       # trg = [trg sent len, batch size]
       # output = [trg sent len, batch size, output dim]
       output = output.view(-1, output.shape[-1])
@@ -117,27 +124,33 @@ def train_epochs(model,
   logger.info('Finish training')
   return train_losses, val_losses
 
-def bleu_score(model, iterator_test, get_text):
-  logger.info('Start BLEU scoring')
-  original_text = []
-  generated_text = []
-  model.eval()
+
+def estimate_batch_time_simple(model,
+                        model_name: str,
+                        batch_size: int,
+                        seq_len_en: int,
+                        seq_len_ru: int,
+                        device,
+                        trials: int):
+  assert trials > 0
   with torch.no_grad():
-    for i, batch in tqdm(enumerate(iterator_test)):
-      src = batch.en
-      trg = batch.ru
+    model.eval()
+    en = torch.zeros((seq_len_en, batch_size), dtype=torch.long, device=device)
+    ru = torch.zeros((seq_len_ru, batch_size), dtype=torch.long, device=device)
+    timer = 0
 
-      output = model(src, trg, 0)  # turn off teacher forcing
+    for _ in range(trials):
+      start = time.time()
+      _ = model(en, ru)
+      end = time.time()
+      timer += (end - start)
+    model.train()
+    avg_time = timer / trials
+    logger.info("Model %s computes sequence [batch_size: %d, en_seq_lenth: %d, ru_seq_length: %d] within %.5f seconds.",
+                model_name, batch_size, seq_len_en, seq_len_ru, avg_time)
+    return avg_time
 
-      # trg = [trg sent len, batch size]
-      # output = [trg sent len, batch size, output dim]
-
-      output = output.argmax(dim=-1)
-
-      original_text.extend([get_text(x) for x in trg.cpu().numpy().T])
-      generated_text.extend([get_text(x) for x in output[1:].detach().cpu().numpy().T])
-  logger.info('Finished BLEU scoring')
-  score = corpus_bleu([[text] for text in original_text], generated_text) * 100
-  logger.info('BLEU score: %.2f', score)
-
-  return score
+def compute_parameters_number(model, model_name: str):
+  nparams = sum(p.numel() for p in model.parameters())
+  logger.info('Model %s has [%d] parameters', model_name, nparams)
+  return nparams

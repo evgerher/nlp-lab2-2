@@ -82,8 +82,8 @@ def prepare_iterators(train_data, valid_data, test_data, BATCH_SIZE, device, col
   return train_iterator, valid_iterator, test_iterator
 
 def labels_from_target(trg):
-  labels = trg['input_ids']
-  return labels[:, 1:].reshape(-1) # batch_size, seq_len
+  trg = trg.T[:, 1:].contiguous().view(-1)
+  return trg
 
 def get_text(x, tokenizer):
   return tokenizer.decode(x)

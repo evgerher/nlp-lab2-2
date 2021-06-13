@@ -29,7 +29,8 @@ def tokenization(x):
 def build_vocab(field, preprocessed_text, vectors=None):
   field.build_vocab(
       preprocessed_text,
-      vectors=vectors
+      vectors=vectors,
+      min_freq = 3
   )
   # get the vocab instance
   vocab = field.vocab
@@ -136,13 +137,15 @@ def remove_tech_tokens(mystr):
   return [x for x in mystr if x not in tokens_to_remove]
 
 
-def translate(model, sentences: List[str], encode_en, get_text, max_len=128):
+def translate(model, sentences: List[str], encode_en, get_text, max_len=50):
   with torch.no_grad():
     outs = []
     model.eval()
     for sentence in sentences:
       en_tokens = encode_en([sentence], model.device)
       ru_tokens = model.translate(en_tokens, max_len=max_len)
+      if not isinstance(ru_tokens, list):
+        ru_tokens = ru_tokens.squeeze(0).detach().cpu().numpy()
       ru_text = ' '.join(get_text(ru_tokens))
       outs.append(ru_text)
     return outs

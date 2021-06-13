@@ -14,7 +14,7 @@ from tokenizers.processors import TemplateProcessing
 from transformers import BertTokenizer, BertModel, GPT2Config, GPT2TokenizerFast, AutoTokenizer, GPT2LMHeadModel
 from utils.bert2gpt_utils import *
 from utils.logger import setup_logger
-from utils.train import prepare, train_epochs, bleu_score
+from utils.train import prepare, train_epochs
 
 logger = logging.getLogger('runner')
 
@@ -227,7 +227,7 @@ if __name__ == '__main__':
                                                                                   num_workers=0,
                                                                                   collate_fn=closured_collate)
   convert_text = lambda x: get_text(x, dec_tokenizer)
-  train_epochs( # todo: тренировка gpt2 - на каждом шаге менять attention mask
+  train_epochs(# todo: тренировка gpt2 - на каждом шаге менять attention mask?
     seq2seq,
     train_iterator,
     valid_iterator,

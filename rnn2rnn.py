@@ -1,12 +1,15 @@
 import random
 
+from datasets import tqdm
 from torch.utils.tensorboard import SummaryWriter
 from torch import nn
+from nltk.translate.bleu_score import corpus_bleu
 
 from utils.attention import LuongAttention
 from utils.rnn_utils import *
 from utils.logger import setup_logger
-from utils.train import prepare, train_epochs, bleu_score
+from utils.train import prepare, train_epochs, estimate_batch_time_simple, compute_parameters_number
+import torch
 
 logger = logging.getLogger('runner')
 
@@ -67,7 +70,9 @@ class RNN_ModelDecoder(nn.Module):
     output, hidden = self.rnn(embeds, hidden)
     attn_weights = None
     if self.attention:
-      output, attn_weights = self.attention(output, hidden, encoder_outputs)
+      output, attn_weights = self.attention(output, hidden, encoder_outputs) # output: [batch_size, hidden_size]
+    else:
+      output = output.squeeze(0)
     output = self.out(output)
     return output, hidden, attn_weights
 
@@ -99,7 +104,7 @@ class RNN2RNN(nn.Module):
     # Again, now batch is the first dimention instead of zero
     batch_size = trg.shape[1]
     max_len = trg.shape[0]  # todo: look precisely here
-    trg_vocab_size = self.decoder.embedding.num_embeddings  # todo: what ?
+    trg_vocab_size = self.decoder.embedding.num_embeddings  
 
     # tensor to store decoder outputs
     outputs = torch.zeros((max_len - 1, batch_size, trg_vocab_size), device=self.device)
@@ -137,30 +142,30 @@ class RNN2RNN(nn.Module):
 
 def init_arguments():
   encoder_setup = {
-    'hidden_size': 256,
-    'input_size': 300,
+    'hidden_size': 512,
+    'input_size': 256,
     'bidirectional': True,
-    'dropout': 0.4,
+    'dropout': 0.25,
     'layers': 2
   }
 
   decoder_setup = {
-    'hidden_size': 256,
-    'input_size': 200,
+    'hidden_size': 512,
+    'input_size': 256,
     'bidirectional': False,
-    'dropout': 0.4,
-    'other_dropout': 0.3,
+    'dropout': 0.25,
+    'other_dropout': 0.25,
     'layers': 2
   }
 
   dec_emb_setup = {
-    'embedding_size': 200,
+    'embedding_size': 256,
     'max_length': 128
   }
 
   train_params = {
-    'lr': 5e-4,
-    'epochs': 30,
+    'lr': 1e-3,
+    'epochs': 20,
     'batch_size': 128
   }
 
@@ -177,13 +182,14 @@ def init_embeds(encoder_setup, decoder_setup, dec_emb_setup, train_params):
 
 
 
-  weights = EN_field.vocab.vectors
-  mask = (weights[:, 0] == 0.0)
-  mean, std = weights[~mask].mean(), weights[~mask].std()
-  weights[mask] = torch.normal(mean, std, weights[mask].size())
+  # weights = EN_field.vocab.vectors
+  # mask = (weights[:, 0] == 0.0)
+  # mean, std = weights[~mask].mean(), weights[~mask].std()
+  # weights[mask] = torch.normal(mean, std, weights[mask].size())
 
   n_tokens = len(ru_vocab.stoi)
-  encoder_embedding = nn.Embedding.from_pretrained(weights, freeze=False, padding_idx=en_vocab.stoi[PAD_TOKEN])
+  # encoder_embedding = nn.Embedding.from_pretrained(weights, freeze=False, padding_idx=en_vocab.stoi[PAD_TOKEN])
+  encoder_embedding = nn.Embedding(len(en_vocab.stoi), encoder_setup['input_size'], padding_idx=en_vocab.stoi[PAD_TOKEN])
   decoder_embedding = nn.Embedding(n_tokens, dec_emb_setup['embedding_size'], padding_idx=ru_vocab.stoi[PAD_TOKEN])
 
   attention = LuongAttention(decoder_setup['hidden_size'], encoder_setup['bidirectional'], n_tokens)
@@ -204,15 +210,52 @@ def build_seq2seq(setups, embeds, attention, model_name):
   logger.info('Initialized model')
   return seq2seq, device
 
+
+def bleu_score(model, iterator_test, get_text):
+  logger.info('Start BLEU scoring')
+  original_text = []
+  generated_text = []
+  model.eval()
+  with torch.no_grad():
+    for i, batch in tqdm(enumerate(iterator_test)):
+      src = batch.en
+      trg = batch.ru
+
+      output = model(src, trg, 0)  # turn off teacher forcing
+
+      # trg = [trg sent len, batch size]
+      # output = [trg sent len, batch size, output dim]
+
+      output = output.argmax(dim=-1)
+      original = [get_text(x) for x in trg.cpu().numpy().T]
+      generated = [get_text(x) for x in output.detach().cpu().numpy().T]
+      original_text.extend(original)
+      generated_text.extend(generated)
+  score = corpus_bleu([[text] for text in original_text], generated_text) * 100
+  logger.info('Finished BLEU scoring')
+  logger.info('BLEU score: %.2f', score)
+
+  return score
+
+
 if __name__ == '__main__':
   setup_logger()
   model_name = 'RNN2RNN'
   logger.info(f'Model {model_name}')
   writer = SummaryWriter('exp_RNN2RNN')
+
+
+
   encoder_setup, decoder_setup, dec_emb_setup, train_params = init_arguments()
   train_params, setups, vocabs, embeds, attention, datasets = init_embeds(encoder_setup, decoder_setup, dec_emb_setup, train_params)
   (en_vocab, ru_vocab) = vocabs
   seq2seq, device = build_seq2seq(setups, embeds, attention, model_name)
+
+  RU_SEQ_LEN = 50
+  EN_SEQ_LEN = 45
+  BATCH_SIZE = 32
+  estimated_time = estimate_batch_time_simple(seq2seq, model_name, BATCH_SIZE, EN_SEQ_LEN, RU_SEQ_LEN, device, 100)
+  nparams = compute_parameters_number(seq2seq, model_name)
 
   pad_idx = ru_vocab.stoi[PAD_TOKEN]
   optimizer, scheduler, criterion, (train_iterator, valid_iterator, test_iterator) = prepare(train_params,
@@ -237,4 +280,3 @@ if __name__ == '__main__':
   )
 
   score = bleu_score(seq2seq, test_iterator, convert_text)
-
