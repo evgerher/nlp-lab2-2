@@ -47,7 +47,7 @@ def load_dataset_local(EN_field, RU_field, path: str):
     fields=[('en', EN_field), ('ru', RU_field)]
   )
   train_data, valid_data, test_data = dataset.split(split_ratio=[0.8, 0.15, 0.05])
-  return train_data, valid_data, test_data
+  return dataset, train_data, valid_data, test_data
 
 class TabularDataset_From_List(torchtext.legacy.data.Dataset):
 

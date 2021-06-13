@@ -25,13 +25,15 @@ def train_epoch(model, iterator, optimizer, criterion, labels_from_target):
   model.train()
   epoch_loss = 0
   for i, batch in enumerate(iterator):
-    src = batch.en.T
+    src = batch.en
     trg = batch.ru
 
     optimizer.zero_grad()
     if 'cnn' in model.name.lower():
-      tt = trg[:-1] # [seq_len - 1, batch_size]
-    else:
+      tt = trg.T[:-1] # [seq_len - 1, batch_size]
+    elif 'word_transformer' in model.name.lower():
+      tt = trg[:, :-1]
+    elif 'rnn' in model.name.lower():
       tt = trg
     output = model(src, tt)
 
@@ -61,6 +63,8 @@ def evaluate_epoch(model, iterator, criterion, labels_from_target):
 
       if 'cnn' in model.name.lower():
         tt = trg[:-1]
+      elif 'word_transformer' in model.name.lower():
+        tt = trg[:, :-1]
       else:
         tt = trg
       output = model(src, tt)
@@ -131,12 +135,16 @@ def estimate_batch_time_simple(model,
                         seq_len_en: int,
                         seq_len_ru: int,
                         device,
-                        trials: int):
+                        trials: int,
+                        batch_first: bool = False):
   assert trials > 0
   with torch.no_grad():
     model.eval()
     en = torch.zeros((seq_len_en, batch_size), dtype=torch.long, device=device)
     ru = torch.zeros((seq_len_ru, batch_size), dtype=torch.long, device=device)
+    if batch_first:
+      en = en.T
+      ru = ru.T
     timer = 0
 
     for _ in range(trials):

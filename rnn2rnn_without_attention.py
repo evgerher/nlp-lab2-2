@@ -3,9 +3,9 @@ from utils.train import compute_parameters_number
 
 
 def init_embeds(encoder_setup, decoder_setup, dec_emb_setup, train_params):
-  train_data, valid_data, test_data = load_dataset_local(EN_field, RU_field, 'data.txt')
-  en_vocab = build_vocab_en(EN_field, train_data)
-  ru_vocab = build_vocab(RU_field, train_data)
+  dataset, train_data, valid_data, test_data = load_dataset_local(EN_field, RU_field, 'data.txt')
+  en_vocab = build_vocab(EN_field, dataset)
+  ru_vocab = build_vocab(RU_field, dataset)
 
   n_tokens = len(ru_vocab.stoi)
   encoder_embedding = nn.Embedding(len(en_vocab.stoi), encoder_setup['input_size'], padding_idx=en_vocab.stoi[PAD_TOKEN])

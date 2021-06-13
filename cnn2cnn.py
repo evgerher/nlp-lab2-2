@@ -259,9 +259,9 @@ def init_arguments():
 
 
 def init_embeds(encoder_setup, decoder_setup, enc_emb_setup, dec_emb_setup, train_params):
-  train_data, valid_data, test_data = load_dataset_local(EN_field, RU_field, 'data.txt')
-  en_vocab = build_vocab(EN_field, train_data)
-  ru_vocab = build_vocab(RU_field, train_data)
+  dataset, train_data, valid_data, test_data = load_dataset_local(EN_field, RU_field, 'data.txt')
+  en_vocab = build_vocab(EN_field, dataset)
+  ru_vocab = build_vocab(RU_field, dataset)
 
 
   # weights = EN_field.vocab.vectors
@@ -274,7 +274,7 @@ def init_embeds(encoder_setup, decoder_setup, enc_emb_setup, dec_emb_setup, trai
   encoder_embedding = nn.Embedding(en_tokens, enc_emb_setup['embedding_size'], padding_idx=en_vocab.stoi[PAD_TOKEN])
   decoder_embedding = nn.Embedding(ru_tokens, dec_emb_setup['embedding_size'], padding_idx=ru_vocab.stoi[PAD_TOKEN])
 
-  dataset = (train_data, valid_data, test_data)
+  dataset = (dataset, train_data, valid_data, test_data)
   embeds = (encoder_embedding, decoder_embedding)
   vocabs = (en_vocab, ru_vocab)
   setups = (encoder_setup, decoder_setup)
